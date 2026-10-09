@@ -1,27 +1,3022 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>mqmux.github.io</title>
-<style>
-  *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0d1117;color:#e6edf3;line-height:1.7;-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif}
-  .box{text-align:center;padding:44px 52px;border:1px solid #30363d;border-radius:16px;background:#161b22}
-  .dot{width:10px;height:10px;border-radius:50%;background:#3fb950;display:inline-block;margin-right:8px;vertical-align:middle}
-  h1{margin:0 0 6px;font-size:30px;letter-spacing:.5px;font-family:ui-monospace,Consolas,monospace}
-  .ok{color:#3fb950;font-size:15px;margin:0 0 18px;font-weight:500}
-  .desc{color:#8b949e;font-size:14px;margin:0 0 20px}
-  .meta{color:#6e7681;font-size:13px;margin:0;border-top:1px solid #30363d;padding-top:16px}
-  code{background:#0d1117;border:1px solid #30363d;border-radius:5px;padding:1px 6px;font-size:13px;color:#79c0ff;font-family:ui-monospace,Consolas,monospace}
-</style>
+<html lang="zh-CN" data-page-node-id="uRzjuxf6dyEpguKoOdQ4Ni">
+<head data-page-node-id="vQHGyhl83qwejJ2KVDxuPT">
+    <meta charset="UTF-8" data-page-node-id="o0DI9A05Lj7iMwSFxUc60P">
+    <title>DPG</title>
+    <link rel="shortcut icon" href="favicon.ico" data-page-node-id="rfGFCoqyDwos3fD4dG3JJt">
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --input-bg: #161b22;
+            --input-border: #30363d;
+            --input-focus: #58a6ff;
+            --button-bg: #21262d;
+            --button-hover: #30363d;
+            --button-border: #363b42;
+            --card-bg: #161b22;
+            --card-border: #30363d;
+            --card-hover: #21262d;
+            --card-min-width: 320px;
+            --success: #2ea043;
+            --error: #f85149;
+            --fullscreen-bg: rgba(13, 17, 23, 0.98);
+            --fullscreen-btn-bg: rgba(33, 38, 45, 0.9);
+            --fullscreen-btn-border: #30363d;
+            --fullscreen-btn-color: #c9d1d9;
+            --fullscreen-btn-hover-bg: rgba(48, 54, 61, 0.95);
+            --box-shadow: 0 6px 32px 0 rgba(0,0,0,0.28);
+            --toast-bg: #161b22;
+            --toast-border: #30363d;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        .control-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #0d1117;
+            border: 0px solid var(--card-border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .control-bar input {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
+            padding: 10px 12px;
+            border-radius: 6px;
+            flex: 1;
+            min-width: 100px;
+            font-size: 14px;
+        }
+        .control-bar select {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
+            padding: 10px 15px;
+            border-radius: 6px;
+            min-width: 100px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .control-bar select:focus {
+            outline: none;
+            border-color: var(--input-focus);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3);
+        }
+        .control-bar input:focus {
+            outline: none;
+            border-color: var(--input-focus);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3);
+        }
+        .control-bar button {
+            background: var(--button-bg);
+            border: 1px solid var(--button-border);
+            color: var(--text-color);
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .control-bar button:hover {
+            background: var(--button-hover);
+            border-color: var(--input-focus);
+        }
+        .status {
+            margin-left: auto;
+            font-size: 14px;
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+        /* 滑块控制 */
+        .size-slider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 10px;
+            min-width: 200px;
+        }
+        .size-slider label {
+            font-size: 13px;
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+        .size-slider input[type=range] {
+            width: 120px;
+            background: var(--input-bg);
+            height: 6px;
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+        .size-slider input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--input-focus);
+            cursor: pointer;
+            border: 2px solid var(--input-border);
+        }
+        .size-slider span {
+            font-size: 13px;
+            min-width: 45px;
+            text-align: center;
+        }
+        /* 卡片容器 - 自适应网格 */
+        .clients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(var(--card-min-width), 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .client-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.1s, border-color 0.2s;
+            cursor: pointer;
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+        .client-card.hidden-card {
+            display: none !important;
+        }
+        .client-card:hover {
+            transform: translateY(-2px);
+            outline: 1px solid var(--input-focus);
+            outline-offset: 2px;
+        }
+        .client-card .img-container {
+            width: 100%;
+            aspect-ratio: 16/9;
+            overflow: hidden;
+            background: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .client-card .img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.15s ease;
+        }
+        .client-card-footer {
+            padding: 10px 12px;
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .client-id {
+            font-weight: 600;
+            font-size: 14px;
+            word-break: break-all;
+            cursor: pointer;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        .client-id:hover {
+            text-decoration: none;
+            background-color: var(--button-hover);
+        }
+        
+        .client-id.editing {
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            outline: none;
+            white-space: normal;
+            color: var(--text-color);
+            font-size: 14px;
+            padding: 2px 4px;
+            width: auto;
+            min-width: 50px;
+            max-width: 95%;
+            box-sizing: border-box;
+        }
+        
+        .refresh-btn {
+            background: transparent;
+            border: 1px solid var(--button-border);
+            color: var(--text-color);
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .refresh-btn:hover {
+            background: var(--button-hover);
+        }
+        .card-tools {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .card-tool-btn {
+            background: transparent;
+            border: 1px solid var(--button-border);
+            color: var(--text-color);
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+        }
+        .card-tool-btn:hover {
+            background: var(--button-hover);
+            border-color: var(--input-focus);
+        }
+        .card-tool-btn.active {
+            background: var(--button-border);
+            border-color: var(--input-focus);
+            color: #fff;
+        }
+        .color-popover {
+            position: absolute;
+            z-index: 1500;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: var(--box-shadow);
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 180px;
+        }
+        .color-popover.visible {
+            display: flex;
+        }
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+        }
+        .color-swatch {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.15);
+            box-sizing: border-box;
+        }
+        .color-swatch:hover {
+            transform: scale(1.15);
+        }
+        .color-popover input[type="color"] {
+            width: 100%;
+            height: 28px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            background: var(--input-bg);
+            cursor: pointer;
+        }
+        .color-popover-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        .color-popover-actions button {
+            flex: 1;
+            background: var(--button-bg);
+            border: 1px solid var(--button-border);
+            color: var(--text-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .color-popover-actions button:hover {
+            background: var(--button-hover);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--toast-bg);
+            border: 1px solid var(--toast-border);
+            color: var(--text-color);
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: var(--box-shadow);
+            z-index: 2000;
+            font-size: 14px;
+            display: none;
+            max-width: 300px;
+            text-align: center;
+        }
+        .toast.success {
+            border-color: var(--success);
+        }
+        .toast.error {
+            border-color: var(--error);
+        }
+        /* 全屏样式 */
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--fullscreen-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .fullscreen img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            transition: transform 0.2s ease;
+            box-shadow: var(--box-shadow);
+            border: 2px solid var(--card-border);
+            border-radius: 8px;
+        }
+        .fullscreen-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1001;
+        }
+        .fullscreen-btn {
+            background-color: var(--fullscreen-btn-bg);
+            border: 1px solid var(--fullscreen-btn-border);
+            color: var(--fullscreen-btn-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+            box-shadow: var(--box-shadow);
+        }
+        .fullscreen-btn:hover {
+            background-color: var(--fullscreen-btn-hover-bg);
+            transform: scale(1.1);
+        }
+        .fullscreen-follow-btn {
+            display: none;
+        }
+        .fullscreen-follow-btn.active {
+            background-color: #238636;
+            border-color: #2ea043;
+            color: #fff;
+        }
+        /* 单卡内部：底部极简截图刷新进度条（无数字，滑动动画表现“正在刷新”） */
+        .refresh-progress-bar {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 3px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 50;
+        }
+        .refresh-progress-bar.active {
+            opacity: 1;
+        }
+        .refresh-progress-bar .bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 35%;
+            background: linear-gradient(90deg, transparent, var(--input-focus), transparent);
+            animation: refreshBarSlide 1s linear infinite;
+        }
+        @keyframes refreshBarSlide {
+            0% { transform: translateX(-120%); }
+            100% { transform: translateX(320%); }
+        }
+        .fullscreen .cmd-panel, .fullscreen .file-panel, .fullscreen .clipboard-panel {
+            position: absolute;
+            right: 86px;
+            top: 18px;
+            z-index: 1002;
+            width: 520px;
+            max-width: calc(100vw - 140px);
+            background: var(--fullscreen-btn-bg);
+            border: 1px solid var(--fullscreen-btn-border);
+            border-radius: 12px;
+            box-shadow: var(--box-shadow);
+            padding: 10px;
+            display: none;
+            color: var(--fullscreen-btn-color);
+        }
+        .fullscreen .fullscreen-btn.active {
+            background-color: #238636;
+            border-color: #2ea043;
+            color: #fff;
+        }
+        .fullscreen .auto-refresh-panel {
+            position: absolute;
+            z-index: 1003;
+            width: 260px;
+            max-width: calc(100vw - 24px);
+            background: var(--fullscreen-btn-bg);
+            border: 1px solid var(--fullscreen-btn-border);
+            border-radius: 12px;
+            box-shadow: var(--box-shadow);
+            padding: 12px;
+            color: var(--fullscreen-btn-color);
+            font-size: 13px;
+        }
+        .fullscreen .auto-refresh-panel .ar-title { font-weight: 600; margin-bottom: 8px; }
+        .fullscreen .auto-refresh-panel .ar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .fullscreen .auto-refresh-panel .ar-slider { flex: 1; accent-color: #238636; cursor: pointer; }
+        .fullscreen .auto-refresh-panel .ar-value { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+        .fullscreen .auto-refresh-panel .ar-status { opacity: .8; margin-bottom: 8px; }
+        .fullscreen .auto-refresh-panel .ar-hint { opacity: .6; font-size: 11px; line-height: 1.5; }
+        .fullscreen .cmd-panel input, .fullscreen .file-panel input, .fullscreen .clipboard-panel textarea {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        .fullscreen .clipboard-panel textarea {
+            min-height: 100px;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s ease;
+            scrollbar-width: thin;
+            scrollbar-color: var(--input-border) var(--input-bg);
+        }
+        .fullscreen .clipboard-panel textarea:focus {
+            border-color: var(--input-focus);
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+        }
+        .fullscreen .clipboard-panel textarea::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .fullscreen .clipboard-panel textarea::-webkit-scrollbar-track {
+            background: var(--input-bg);
+            border-radius: 10px;
+        }
+        .fullscreen .clipboard-panel textarea::-webkit-scrollbar-thumb {
+            background: var(--input-border);
+            border-radius: 10px;
+            border: 2px solid var(--input-bg);
+        }
+        .fullscreen .clipboard-panel textarea::-webkit-scrollbar-thumb:hover {
+            background: var(--button-hover);
+        }
+        .fullscreen .cmd-panel button, .fullscreen .file-panel button, .fullscreen .clipboard-panel button {
+            background: var(--button-bg);
+            border: 1px solid var(--button-border);
+            color: var(--text-color);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .fullscreen .cmd-output, .fullscreen .file-list {
+            margin-top: 8px;
+            max-height: 440px;
+            overflow: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px solid var(--fullscreen-btn-border);
+            border-radius: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.1);
+            color: var(--fullscreen-btn-color);
+            scrollbar-width: thin;
+            scrollbar-color: var(--input-border) var(--input-bg);
+        }
+        .fullscreen .cmd-output::-webkit-scrollbar,
+        .fullscreen .file-list::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .fullscreen .cmd-output::-webkit-scrollbar-track,
+        .fullscreen .file-list::-webkit-scrollbar-track {
+            background: var(--input-bg);
+            border-radius: 10px;
+        }
+        .fullscreen .cmd-output::-webkit-scrollbar-thumb,
+        .fullscreen .file-list::-webkit-scrollbar-thumb {
+            background: var(--input-border);
+            border-radius: 10px;
+            border: 2px solid var(--input-bg);
+        }
+        .fullscreen .cmd-output::-webkit-scrollbar-thumb:hover,
+        .fullscreen .file-list::-webkit-scrollbar-thumb:hover {
+            background: var(--button-hover);
+        }
+        .fullscreen .transfer-status {
+            display: none;
+            margin-top: 8px;
+            padding: 10px;
+            border: 1px solid var(--fullscreen-btn-border);
+            border-radius: 10px;
+            background: rgba(0,0,0,0.12);
+            color: var(--fullscreen-btn-color);
+            font-size: 12px;
+        }
+        .fullscreen .transfer-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-bottom: 7px;
+        }
+        .fullscreen .transfer-bar {
+            height: 8px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.22);
+        }
+        .fullscreen .transfer-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            background: #2ea043;
+            transition: width 0.16s ease;
+        }
+        .fullscreen .transfer-status.indeterminate .transfer-bar-fill {
+            width: 38%;
+            animation: transfer-slide 1.05s linear infinite;
+        }
+        .fullscreen .transfer-status.error .transfer-bar-fill {
+            background: #f85149;
+            animation: none;
+        }
+        .fullscreen .transfer-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 6px;
+            opacity: 0.9;
+        }
+        @keyframes transfer-slide {
+            from { transform: translateX(-110%); }
+            to { transform: translateX(270%); }
+        }
+        .fullscreen .cursor {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: red;
+            pointer-events: none;
+            z-index: 10;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+        .fullscreen .cursor-info {
+            position: absolute;
+            left: 15px;
+            top: 15px;
+            background: var(--fullscreen-btn-bg);
+            color: var(--fullscreen-btn-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 11;
+            display: none;
+        }
+        .fullscreen.view-mode img {
+            cursor: grab;
+        }
+        .fullscreen.view-mode img:active {
+            cursor: grabbing;
+        }
+        .fullscreen.control-mode img {
+            cursor: none;
+        }
+        /* 日志弹窗样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            width: 80%;
+            max-width: 900px;
+            max-height: 80%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--box-shadow);
+        }
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 {
+            margin: 0;
+            color: var(--text-color);
+        }
+        .modal-header button {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .modal-body {
+            padding: 15px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .modal-body input, .modal-body select {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+        }
+        
+        .modal-body input:focus, .modal-body select:focus {
+            border-color: var(--input-focus);
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+        }
+        /* 隐藏数字输入框的上下箭头 */
+        .modal-body input[type="number"] {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+            width: 80px;
+            -moz-appearance: textfield; /* Firefox */
+        }
+        
+        .modal-body input[type="number"]::-webkit-inner-spin-button,
+        .modal-body input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .modal-body input[type="number"]:focus {
+            border-color: var(--input-focus);
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+        }
+        .filter-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .filter-row input, .filter-row select {
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .filter-row input[type="number"] {
+            width: 80px;
+        }
+        .filter-row button {
+            background: var(--button-bg);
+            border: 1px solid var(--button-border);
+            color: var(--text-color);
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .filter-row button:hover {
+            background: var(--button-hover);
+        }
+        .logs-content {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            background: var(--bg-color);
+            border-top: 1px solid var(--card-border);
+            border-bottom: 1px solid var(--card-border);
+        }
+        .log-entry {
+            padding: 8px;
+            border-bottom: 1px solid var(--card-border);
+            font-family: monospace;
+        }
+        .log-entry span.time {
+            color: #8b949e;
+        }
+        .log-entry span.client {
+            color: #58a6ff;
+        }
+        .log-entry span.event-connected {
+            color: #2ea043;
+        }
+        .log-entry span.event-disconnected {
+            color: #f85149;
+        }
+        .log-entry span.ip {
+            color: #8b949e;
+        }
+        .modal-footer {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-footer span {
+            color: var(--text-color);
+            opacity: 0.7;
+            margin-right: auto;
+        }
+        .modal-footer button {
+            background: var(--button-bg);
+            border: 1px solid var(--button-border);
+            color: var(--text-color);
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .modal-footer button:hover {
+            background: var(--button-hover);
+        }
+        /* 日志弹窗滚动条 */
+        .logs-content::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .logs-content::-webkit-scrollbar-track {
+            background: var(--input-bg);
+            border-radius: 10px;
+        }
+        .logs-content::-webkit-scrollbar-thumb {
+            background: var(--input-border);
+            border-radius: 10px;
+            border: 2px solid var(--input-bg);
+        }
+        .logs-content::-webkit-scrollbar-thumb:hover {
+            background: var(--button-hover);
+        }
+		
+		.cmd-input {
+			flex: 1;
+			background: var(--input-bg);
+			border: 1px solid var(--input-border);
+			color: var(--text-color);
+			padding: 8px 12px;
+			border-radius: 6px;
+			font-family: inherit;
+			outline: none;
+			transition: border-color 0.2s ease;
+		}
+
+		.cmd-input:focus {
+			border-color: var(--input-focus);
+			box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+		}
+
+		.cmd-btn {
+			background: var(--button-bg);
+			border: 1px solid var(--button-border);
+			color: var(--text-color);
+			padding: 6px 12px;
+			border-radius: 4px;
+			cursor: pointer;
+		}
+
+		.cmd-btn:hover {
+			background: var(--button-hover);
+		}
+		
+		.file-panel.visible,
+        .cmd-panel.visible,
+        .clipboard-panel.visible {
+            display: block !important;
+        }
+    </style>
 </head>
-<body>
-  <div class="box">
-    <h1>mqmux.github.io</h1>
-    <p class="ok"><span class="dot"></span>GitHub Pages 已就绪</p>
-    <p class="desc">这个页面是通过 <code>git push</code> 上传的</p>
-    <p class="meta">部署时间 2026-10-09</p>
-  </div>
+<body data-page-node-id="tapM0DRUplsRnT1hkC7sPY">
+    <div id="toast" class="toast" data-page-node-id="GwTP1CizuEmWdA0YZIOPD7"></div>
+
+    <div class="container" data-page-node-id="DsY9nf7U87NBryoLvPSZDa">
+        <div class="control-bar" data-page-node-id="tSavSuKrYpYbxuaG7qP1Lh">
+            <select id="serverSelect" title="选择已保存的服务器预设" data-page-node-id="I8XQlkiMsKzHVeGC3L40qp"></select>
+            <input type="text" id="serverInput" placeholder="服务器地址:端口 (例如 47.112.187.83:7778)" value="" data-page-node-id="AyFreJC7DycH6gwoZxrgnn">
+            <input type="password" id="passwordInput" placeholder="管理密码" value="" data-page-node-id="XDlW8qc9o5JKCLtiDmH3Qr">
+            <button id="connectBtn" data-page-node-id="sDH6eJzIsIwK693InSk2Fc">连接</button>
+            <button id="showAllBtn" data-page-node-id="y64rnTo02xQXsXth4Evnc1">显示全部</button>
+            <button id="viewLogsBtn" data-page-node-id="PDnWzdH6xt0AZdDHUGIJEk">📋 日志</button> <!-- 新增日志按钮 -->
+            <button id="delServerBtn" title="删除当前选中的预设" data-page-node-id="wEhbAmtwpo6xOXpazfTla6">🗑 删除</button>
+            <button id="refreshAllBtn" data-page-node-id="EGRwiLG1zq6kiarhxSgHCt">刷新全部</button>
+            <div class="size-slider" data-page-node-id="n2053XgAoe0AA4WHYLoBp3">
+                <label data-page-node-id="bHyiotIpOjV8KNLbahw4iS">卡片大小</label>
+                <input type="range" id="cardSizeSlider" min="200" max="1200" value="320" step="10" data-page-node-id="BFnvpOa3mFUz2bLCnjEUx0">
+                <span id="cardSizeValue" data-page-node-id="k3sEEEFaQFfGvlFEsLAerT">320px</span>
+            </div>
+            <span class="status" id="statusText" data-page-node-id="2eVZqHKUCe1T6LZOeMZLbl">未连接</span>
+        </div>
+
+        <div id="clientsContainer" data-page-node-id="ehlEJO6s3M9yu712pyIW0u">
+            <div class="loading" data-page-node-id="cUWFBWuZQYLGiEduGWG2ri">输入服务器地址和管理密码，点击连接获取客户端列表</div>
+        </div>
+    </div>
+
+    <!-- 日志查看弹窗 -->
+    <div id="logsModal" class="modal" data-page-node-id="hSSjxY4E0KMHl6jApKMcFJ">
+        <div class="modal-content" data-page-node-id="ohvPTaLcXe9sr2K0TSyyns">
+            <div class="modal-header" data-page-node-id="3pMw8xp3AMpXbROMQTDI4i">
+                <h3 data-page-node-id="9WJM5FBf3rQsGVpVxDeTEr">📋 连接日志</h3>
+                <button id="closeLogsModal" data-page-node-id="hp3Xucxwnd07D8AmPHZyDa">&times;</button>
+            </div>
+            <div class="modal-body" data-page-node-id="TQ5tu1qOApuNKvyaljF68o">
+                <div class="filter-row" data-page-node-id="BRkVoHYY5UwAtkmRL4Gwwk">
+                    <input type="text" id="logServerInput" placeholder="服务器地址:端口" value="47.112.187.83:7778" data-page-node-id="hGlwsQD1QqcIAZ5B1oeSuG">
+                    <input type="password" id="logKeyInput" placeholder="管理密码" value="" data-page-node-id="t9OLaflZJ9h3SlwnVc0blX" >
+                    <input type="number" id="logLimitInput" placeholder="条数" value="50" min="1" max="1000" data-page-node-id="K5LPnryqGLI3Hy36X37w4V">
+                    <button id="fetchLogsBtn" data-page-node-id="cNXOKiGBNOCk3wzkGsKFNC">获取</button>
+                </div>
+                <div class="filter-row" data-page-node-id="ktHCfuhmtdIMjURmBJQsO5">
+                    <select id="logEventFilter" data-page-node-id="eZCSOY37qiDNA4l5sHrP3P">
+                        <option value="" data-page-node-id="s1yDX4an4Tw7ruZMiB2NDa">所有事件</option>
+                        <option value="connected" data-page-node-id="755Qcd0vHBwR2KNWWsWmFy">连接</option>
+                        <option value="disconnected" data-page-node-id="YpQziVMhb9paGfI9WFYmeF">断开</option>
+                    </select>
+                    <input type="text" id="logClientFilter" placeholder="客户端ID过滤" data-page-node-id="p4mLzSgodfAGDQJYtp1Bq8">
+                </div>
+            </div>
+            <div id="logsContent" class="logs-content" data-page-node-id="mOuw52YnLZLFZjReFFtjrj">
+                <div style="color: var(--text-color); opacity: 0.7; text-align: center;" data-page-node-id="klamTvvVHrThI0UBkEqMm8">点击"获取"查看日志</div>
+            </div>
+            <div class="modal-footer" data-page-node-id="XYUdV9kCRfGrBOHFuorUTj">
+                <span id="logCount" data-page-node-id="CSDIG0O1CZD380ojsOtQ01">共 0 条</span>
+                <button id="refreshLogsBtn" data-page-node-id="deON3CahHhB0mZZimnOeo3">刷新</button>
+                <button id="closeLogsBtn" data-page-node-id="TguXGuQezHRud1g5o2Lumh">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const serverInput = document.getElementById('serverInput');
+            const passwordInput = document.getElementById('passwordInput');
+            const serverSelect = document.getElementById('serverSelect');
+            const delServerBtn = document.getElementById('delServerBtn');
+            const connectBtn = document.getElementById('connectBtn');
+            const refreshAllBtn = document.getElementById('refreshAllBtn');
+            const statusText = document.getElementById('statusText');
+            const clientsContainer = document.getElementById('clientsContainer');
+            const toast = document.getElementById('toast');
+
+            // 日志相关元素
+            const viewLogsBtn = document.getElementById('viewLogsBtn');
+            const logsModal = document.getElementById('logsModal');
+            const closeLogsModal = document.getElementById('closeLogsModal');
+            const closeLogsBtn = document.getElementById('closeLogsBtn');
+            const fetchLogsBtn = document.getElementById('fetchLogsBtn');
+            const refreshLogsBtn = document.getElementById('refreshLogsBtn');
+            const logsContent = document.getElementById('logsContent');
+            const logCount = document.getElementById('logCount');
+            const logServerInput = document.getElementById('logServerInput');
+            const logKeyInput = document.getElementById('logKeyInput');
+            const logLimitInput = document.getElementById('logLimitInput');
+            const logEventFilter = document.getElementById('logEventFilter');
+            const logClientFilter = document.getElementById('logClientFilter');
+
+            // 卡片外观设置
+            const showAllBtn = document.getElementById('showAllBtn');
+            const CARD_SETTINGS_KEY = 'dpg_card_settings';
+            const COLOR_PALETTE = [
+                '#58a6ff', '#2ea043', '#f85149', '#d29922', '#a371f7',
+                '#3fb950', '#f778ba', '#56d4dd', '#8b949e', '#bd561d',
+                '#79c0ff', '#ffa198', '#d2a8ff', '#7ee787', '#ff7b72'
+            ];
+
+            // 全局截图缓存
+            const SCREENSHOT_MIN_QUALITY = 40;
+            const SCREENSHOT_MAX_QUALITY = 70;
+            let screenshotQuality = 55;
+            let screenshotFastFrames = 0;
+            const screenshotCache = new Map(); // clientId -> { url, timestamp, seq }
+            const screenshotRequestSeq = new Map(); // clientId -> latest request seq
+            const cardInFlight = new Set(); // clientId -> 正在拉取中，防止同一客户端并发拉取（避免目标端堵塞）
+
+            function showToast(message, type = 'success', duration = 2000) {
+                toast.textContent = message;
+                toast.className = 'toast ' + type;
+                toast.style.display = 'block';
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, duration);
+            }
+
+            async function copyTextToClipboard(text) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    } catch (err) {
+                        console.warn('Clipboard API failed, trying fallback', err);
+                    }
+                }
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                try {
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    return successful;
+                } catch (err) {
+                    document.body.removeChild(textarea);
+                    return false;
+                }
+            }
+
+            function triggerBrowserDownload(blob, filename) {
+                const href = URL.createObjectURL(blob);
+                const dl = document.createElement('a');
+                dl.href = href;
+                dl.download = filename || 'download.bin';
+                dl.style.display = 'none';
+                document.body.appendChild(dl);
+                dl.click();
+                setTimeout(() => {
+                    URL.revokeObjectURL(href);
+                    dl.remove();
+                }, 1000);
+            }
+
+            const cardSizeSlider = document.getElementById('cardSizeSlider');
+            const cardSizeValue = document.getElementById('cardSizeValue');
+            let currentCardSize = 320;
+
+            function setCardMinWidth(size) {
+                currentCardSize = size;
+                document.documentElement.style.setProperty('--card-min-width', size + 'px');
+                cardSizeValue.textContent = size + 'px';
+            }
+            setCardMinWidth(currentCardSize);
+
+            cardSizeSlider.addEventListener('input', (e) => {
+                setCardMinWidth(parseInt(e.target.value));
+            });
+            
+            // 卡片大小滑块支持滚轮调整
+            cardSizeSlider.addEventListener('wheel', (e) => {
+                e.preventDefault(); // 防止页面滚动
+                
+                const step = 10; // 每次滚轮调整的步长
+                const delta = e.deltaY > 0 ? -step : step;
+                let newValue = parseInt(cardSizeSlider.value) + delta;
+                
+                // 限制在 min 和 max 范围内
+                const min = parseInt(cardSizeSlider.min);
+                const max = parseInt(cardSizeSlider.max);
+                newValue = Math.min(max, Math.max(min, newValue));
+                
+                cardSizeSlider.value = newValue;
+                setCardMinWidth(newValue);
+            }, { passive: false });
+
+            function getAllCardSettings() {
+                try {
+                    return JSON.parse(localStorage.getItem(CARD_SETTINGS_KEY)) || {};
+                } catch (e) {
+                    return {};
+                }
+            }
+            function getCardSettings(clientId) {
+                return getAllCardSettings()[clientId] || {};
+            }
+            function saveCardSettings(clientId, settings) {
+                const all = getAllCardSettings();
+                all[clientId] = { ...all[clientId], ...settings };
+                localStorage.setItem(CARD_SETTINGS_KEY, JSON.stringify(all));
+            }
+            function renameCardSettings(oldId, newId) {
+                const all = getAllCardSettings();
+                if (all[oldId]) {
+                    all[newId] = all[oldId];
+                    delete all[oldId];
+                    localStorage.setItem(CARD_SETTINGS_KEY, JSON.stringify(all));
+                }
+            }
+
+            // ---------- 多服务器预设管理 ----------
+            const SERVERS_KEY = 'dpg_servers';
+            const SERVER_SELECT_KEY = 'dpg_active_server';
+
+            function loadServers() {
+                let list = [];
+                try { list = JSON.parse(localStorage.getItem(SERVERS_KEY)) || []; } catch (e) { list = []; }
+                if (!Array.isArray(list)) list = [];
+                // 迁移旧的单一服务器存储
+                if (list.length === 0) {
+                    const oldAddr = localStorage.getItem('serverAddr');
+                    const oldPass = localStorage.getItem('password');
+                    if (oldAddr) {
+                        list.push({ addr: oldAddr, pass: oldPass || '' });
+                        localStorage.setItem(SERVERS_KEY, JSON.stringify(list));
+                        localStorage.removeItem('serverAddr');
+                        localStorage.removeItem('password');
+                    } else {
+                        // 全新用户：预置一个默认服务器
+                        list.push({ addr: '47.112.187.83:7778', pass: '' });
+                        localStorage.setItem(SERVERS_KEY, JSON.stringify(list));
+                    }
+                }
+                return list;
+            }
+
+            let servers = loadServers();
+            let activeIndex = -1;
+
+            function persistServers() {
+                localStorage.setItem(SERVERS_KEY, JSON.stringify(servers));
+            }
+
+            function populateServerSelect() {
+                const prev = serverSelect.value;
+                serverSelect.innerHTML = '';
+                if (servers.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = '（无预设，请填写后点"新增"）';
+                    serverSelect.appendChild(opt);
+                } else {
+                    servers.forEach((s, i) => {
+                        const opt = document.createElement('option');
+                        opt.value = String(i);
+                        opt.textContent = s.addr || '(空地址)';
+                        serverSelect.appendChild(opt);
+                    });
+                }
+                if (servers.length > 0) {
+                    let idx = servers.findIndex(s => s.addr === prev);
+                    if (idx < 0) idx = Math.max(0, Math.min(activeIndex, servers.length - 1));
+                    activeIndex = idx;
+                    serverSelect.value = String(idx);
+                } else {
+                    activeIndex = -1;
+                    serverSelect.value = '';
+                }
+            }
+
+            function applyActiveToInputs() {
+                if (activeIndex >= 0 && servers[activeIndex]) {
+                    serverInput.value = servers[activeIndex].addr || '';
+                    passwordInput.value = servers[activeIndex].pass || '';
+                }
+            }
+
+            function selectServerByIndex(i) {
+                if (i < 0 || i >= servers.length) return;
+                activeIndex = i;
+                localStorage.setItem(SERVER_SELECT_KEY, servers[i].addr || '');
+                applyActiveToInputs();
+            }
+
+            // 初始填充
+            populateServerSelect();
+            const lastAddr = localStorage.getItem(SERVER_SELECT_KEY);
+            if (lastAddr && servers.length) {
+                const idx = servers.findIndex(s => s.addr === lastAddr);
+                if (idx >= 0) selectServerByIndex(idx);
+            }
+            applyActiveToInputs();
+
+            // 下拉选择 → 切换并自动连接
+            serverSelect.addEventListener('change', () => {
+                const i = parseInt(serverSelect.value, 10);
+                if (!isNaN(i) && i >= 0) {
+                    selectServerByIndex(i);
+                    loadClients();
+                }
+            });
+
+            // 连接成功后保存：按地址(IP)去重，已存在则更新密码，不重复添加
+            function upsertServer() {
+                const addr = serverInput.value.trim();
+                const pass = passwordInput.value.trim();
+                if (!addr) return;
+                let idx = servers.findIndex(s => s.addr === addr);
+                if (idx >= 0) {
+                    servers[idx].pass = pass; // 已存在：覆盖密码
+                } else {
+                    servers.push({ addr, pass });
+                    idx = servers.length - 1;
+                }
+                activeIndex = idx;
+                persistServers();
+                populateServerSelect();
+                activeIndex = idx;
+                serverSelect.value = String(idx);
+                localStorage.setItem(SERVER_SELECT_KEY, addr);
+            }
+
+            delServerBtn.addEventListener('click', () => {
+                if (activeIndex < 0 || !servers[activeIndex]) { showToast('没有可删除的预设', 'error'); return; }
+                const removed = servers[activeIndex].addr;
+                servers.splice(activeIndex, 1);
+                persistServers();
+                if (servers.length === 0) activeIndex = -1;
+                else activeIndex = Math.min(activeIndex, servers.length - 1);
+                populateServerSelect();
+                if (activeIndex >= 0) serverSelect.value = String(activeIndex);
+                localStorage.setItem(SERVER_SELECT_KEY, activeIndex >= 0 ? servers[activeIndex].addr : '');
+                applyActiveToInputs();
+                showToast('已删除预设: ' + removed, 'success');
+            });
+
+            function getBaseUrl() {
+                let addr = serverInput.value.trim();
+                if (!addr) throw new Error('请输入服务器地址');
+                if (!addr.startsWith('http')) addr = 'http://' + addr;
+                return addr;
+            }
+
+            function adjustScreenshotQuality(durationMs) {
+                if (durationMs > 1200 && screenshotQuality > SCREENSHOT_MIN_QUALITY) {
+                    screenshotQuality = Math.max(SCREENSHOT_MIN_QUALITY, screenshotQuality - 8);
+                    screenshotFastFrames = 0;
+                } else if (durationMs > 800 && screenshotQuality > SCREENSHOT_MIN_QUALITY) {
+                    screenshotQuality = Math.max(SCREENSHOT_MIN_QUALITY, screenshotQuality - 5);
+                    screenshotFastFrames = 0;
+                } else if (durationMs < 350 && screenshotQuality < SCREENSHOT_MAX_QUALITY) {
+                    screenshotFastFrames++;
+                    if (screenshotFastFrames >= 5) {
+                        screenshotQuality = Math.min(SCREENSHOT_MAX_QUALITY, screenshotQuality + 5);
+                        screenshotFastFrames = 0;
+                    }
+                } else {
+                    screenshotFastFrames = 0;
+                }
+            }
+
+            function getPassword() {
+                return passwordInput.value.trim();
+            }
+
+            function setStatus(text, isError = false) {
+                statusText.textContent = text;
+                statusText.style.color = isError ? 'var(--error)' : 'var(--text-color)';
+            }
+
+            async function apiExecute(clientId, type, data) {
+                const url = `${getBaseUrl()}/api/execute`;
+                const body = { client_id: clientId, type, data };
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(`HTTP ${resp.status}: ${text}`);
+                }
+                const json = await resp.json();
+                if (json.status !== 'success') throw new Error(json.error || '未知错误');
+                return json.data;
+            }
+
+            async function apiUploadChunk(clientId, sessionId, chunkIndex, chunkBlob) {
+                const params = new URLSearchParams({
+                    client_id: clientId,
+                    session_id: sessionId,
+                    chunk_index: String(chunkIndex)
+                });
+                const resp = await fetch(`${getBaseUrl()}/api/upload_chunk?${params}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: chunkBlob
+                });
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(`HTTP ${resp.status}: ${text}`);
+                }
+                const json = await resp.json();
+                if (json.status !== 'success') throw new Error(json.error || '未知错误');
+                return json.data;
+            }
+
+            // 统一获取截图方法，带缓存
+            async function getScreenshot(clientId, forceRefresh = false) {
+                const now = Date.now();
+                if (!forceRefresh && screenshotCache.has(clientId)) {
+                    const cached = screenshotCache.get(clientId);
+                    if (now - cached.timestamp < 5000) {
+                        return cached.url;
+                    }
+                    URL.revokeObjectURL(cached.url);
+                    screenshotCache.delete(clientId);
+                }
+                const requestSeq = (screenshotRequestSeq.get(clientId) || 0) + 1;
+                screenshotRequestSeq.set(clientId, requestSeq);
+                const url = `${getBaseUrl()}/api/screenshot`;
+                const startedAt = performance.now();
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id: clientId, quality: screenshotQuality })
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const blob = await resp.blob();
+                adjustScreenshotQuality(performance.now() - startedAt);
+                const newUrl = URL.createObjectURL(blob);
+                if (screenshotRequestSeq.get(clientId) !== requestSeq) {
+                    URL.revokeObjectURL(newUrl);
+                    const cached = screenshotCache.get(clientId);
+                    return cached && cached.seq > requestSeq ? cached.url : null;
+                }
+                const old = screenshotCache.get(clientId);
+                if (old) URL.revokeObjectURL(old.url);
+                screenshotCache.set(clientId, { url: newUrl, timestamp: now, seq: requestSeq });
+                return newUrl;
+            }
+
+            // ---------- 日志功能 ----------
+            // 打开日志弹窗
+            viewLogsBtn.addEventListener('click', () => {
+                logsModal.style.display = 'flex';
+                // 默认使用主界面的服务器地址和管理密码
+                logServerInput.value = serverInput.value;
+                logKeyInput.value = passwordInput.value;
+            });
+
+            function closeLogsModalFn() {
+                logsModal.style.display = 'none';
+            }
+            closeLogsModal.addEventListener('click', closeLogsModalFn);
+            closeLogsBtn.addEventListener('click', closeLogsModalFn);
+            logsModal.addEventListener('click', (e) => {
+                if (e.target === logsModal) {
+                    closeLogsModalFn();
+                }
+            });
+
+            async function fetchLogs() {
+                const server = logServerInput.value.trim();
+                const key = logKeyInput.value.trim();
+                const limit = logLimitInput.value || 50;
+                const event = logEventFilter.value;
+                const clientId = logClientFilter.value.trim();
+
+                if (!server) {
+                    showToast('请输入服务器地址', 'error');
+                    return;
+                }
+
+                let url = `http://${server}/api/logs?limit=${limit}`;
+                if (key) url += `&key=${encodeURIComponent(key)}`;
+                if (event) url += `&event=${event}`;
+                if (clientId) url += `&client_id=${encodeURIComponent(clientId)}`;
+
+                logsContent.innerHTML = '<div style="color: var(--text-color); opacity: 0.7; text-align: center;">加载中...</div>';
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            throw new Error('密码错误或无权限');
+                        }
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    const data = await response.json();
+                    
+                    if (!Array.isArray(data) || data.length === 0) {
+                        logsContent.innerHTML = '<div style="color: var(--text-color); opacity: 0.7; text-align: center;">暂无日志记录</div>';
+                        logCount.textContent = '共 0 条';
+                        return;
+                    }
+
+                    let html = '';
+                    data.forEach((log, index) => {
+                        const eventClass = log.event === 'connected' ? 'event-connected' : 'event-disconnected';
+                        html += `<div class="log-entry">
+                            <span class="time">[${log.time}]</span>
+                            <span class="client">${log.client_id}</span>
+                            <span class="${eventClass}">${log.event}</span>
+                            <span class="ip">${log.remote_ip || ''}</span>
+                        </div>`;
+                    });
+                    
+                    logsContent.innerHTML = html;
+                    logCount.textContent = `共 ${data.length} 条`;
+                } catch (err) {
+                    logsContent.innerHTML = `<div style="color: #f85149; text-align: center;">错误: ${err.message}</div>`;
+                    logCount.textContent = '共 0 条';
+                }
+            }
+
+            fetchLogsBtn.addEventListener('click', fetchLogs);
+            refreshLogsBtn.addEventListener('click', fetchLogs);
+
+            logServerInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchLogs(); });
+            logKeyInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchLogs(); });
+            logLimitInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchLogs(); });
+
+            // ---------- 全屏功能 ----------
+            function openFullscreen(imgSrc, clientId) {
+                const existing = document.querySelector('.fullscreen');
+                if (existing) existing.remove();
+
+                const fullscreenDiv = document.createElement('div');
+                fullscreenDiv.className = 'fullscreen view-mode';
+
+                const fullscreenImg = document.createElement('img');
+                fullscreenImg.src = imgSrc;
+                fullscreenImg.setAttribute('data-clientid', clientId);
+
+                // 控制按钮
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'fullscreen-controls';
+                const modeBtn = document.createElement('button'); modeBtn.className = 'fullscreen-btn'; modeBtn.textContent = 'v';
+                const followMouseBtn = document.createElement('button'); followMouseBtn.className = 'fullscreen-btn fullscreen-follow-btn'; followMouseBtn.textContent = 'B';
+                const followMouseNoRefreshBtn = document.createElement('button'); followMouseNoRefreshBtn.className = 'fullscreen-btn fullscreen-follow-btn'; followMouseNoRefreshBtn.textContent = 'M';
+                const cmdBtn = document.createElement('button'); cmdBtn.className = 'fullscreen-btn'; cmdBtn.textContent = 'I'; cmdBtn.title = '命令行';
+                const uploadBtn = document.createElement('button'); uploadBtn.className = 'fullscreen-btn'; uploadBtn.textContent = 'F'; uploadBtn.title = '上传文件';
+                const refreshBtn = document.createElement('button'); refreshBtn.className = 'fullscreen-btn'; refreshBtn.textContent = '↻'; refreshBtn.title = '刷新图片';
+                const closeBtn = document.createElement('button'); closeBtn.className = 'fullscreen-btn'; closeBtn.textContent = '×'; closeBtn.title = '关闭';
+                const dirBtn = document.createElement('button'); dirBtn.className = 'fullscreen-btn'; dirBtn.textContent = 'D'; dirBtn.title = '列出文件';
+                const getClipboardBtn = document.createElement('button'); getClipboardBtn.className = 'fullscreen-btn'; getClipboardBtn.textContent = 'G'; getClipboardBtn.title = '获取客户端剪贴板';
+                const setClipboardBtn = document.createElement('button'); setClipboardBtn.className = 'fullscreen-btn'; setClipboardBtn.textContent = 'S'; setClipboardBtn.title = '设置客户端剪贴板';
+
+                // 自动刷新间隔面板（长按 / 右键 ↻ 弹出，平时隐藏，画面几乎不变）
+                const autoRefreshPanel = document.createElement('div');
+                autoRefreshPanel.className = 'auto-refresh-panel';
+                autoRefreshPanel.style.display = 'none';
+                autoRefreshPanel.innerHTML = `
+                    <div class="ar-title">自动刷新间隔</div>
+                    <div class="ar-row">
+                        <input type="range" min="1" max="10" step="1" class="ar-slider">
+                        <span class="ar-value">5 秒</span>
+                    </div>
+                    <div class="ar-status">当前：已停止</div>
+                    <div class="ar-hint">点击 ↻ 开关自动刷新 · 长按/右键 ↻ 打开本面板 · 点击外部或 Esc 关闭</div>
+                `;
+                const arSlider = autoRefreshPanel.querySelector('.ar-slider');
+                const arValue = autoRefreshPanel.querySelector('.ar-value');
+                const arStatus = autoRefreshPanel.querySelector('.ar-status');
+                autoRefreshPanel.addEventListener('click', (e) => e.stopPropagation());
+                arSlider.addEventListener('input', applyAutoRefreshInterval);
+                fullscreenDiv.appendChild(autoRefreshPanel);
+
+                controlsDiv.appendChild(closeBtn);
+                controlsDiv.appendChild(modeBtn);
+                controlsDiv.appendChild(cmdBtn);
+                controlsDiv.appendChild(uploadBtn);
+                controlsDiv.appendChild(dirBtn);
+                controlsDiv.appendChild(getClipboardBtn);
+                controlsDiv.appendChild(setClipboardBtn);
+                controlsDiv.appendChild(refreshBtn);
+                controlsDiv.appendChild(followMouseBtn);
+                controlsDiv.appendChild(followMouseNoRefreshBtn);
+
+                // 命令面板
+                const cmdPanel = document.createElement('div');
+				cmdPanel.className = 'cmd-panel';
+				cmdPanel.innerHTML = `
+					<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap; margin-bottom:8px;">
+						<span style="font-size:13px;">ID: <b>${clientId}</b></span>
+						<label style="margin-left:auto; display:flex; align-items:center; gap:4px;">
+                            <input type="checkbox" id="asyncCheckbox"> Silence
+                        </label>
+					</div>
+					<div style="display:flex;gap:8px;align-items:center;">
+						<input id="__cmdInput" type="text" placeholder="输入命令 (例如: dir /b)" class="cmd-input">
+						<button id="__cmdSend" class="cmd-btn">发送</button>
+						<button id="__cmdClear" class="cmd-btn">清空</button>
+					</div>
+					<div id="__cmdOut" class="cmd-output">输出会显示在这里…</div>
+				`;
+                const cmdOut = cmdPanel.querySelector('#__cmdOut');
+                const cmdInput = cmdPanel.querySelector('#__cmdInput');
+                const cmdSend = cmdPanel.querySelector('#__cmdSend');
+                const cmdClear = cmdPanel.querySelector('#__cmdClear');
+
+                // 文件面板
+                const filePanel = document.createElement('div');
+                filePanel.className = 'file-panel';
+                filePanel.innerHTML = `
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap; margin-bottom:8px;">
+                        <span>当前目录: <span id="fileCurrentDir">加载中...</span></span>
+                    </div>
+                    <div id="__fileList" class="file-list">点击 D 获取文件列表…</div>
+                    <div id="__transferProgress" class="transfer-status">
+                        <div id="__transferTitle" class="transfer-title"></div>
+                        <div class="transfer-bar"><div id="__transferFill" class="transfer-bar-fill"></div></div>
+                        <div class="transfer-meta">
+                            <span id="__transferBytes"></span>
+                            <span id="__transferPercent"></span>
+                        </div>
+                    </div>
+                `;
+                const fileListDiv = filePanel.querySelector('#__fileList');
+                const fileCurrentDirSpan = filePanel.querySelector('#fileCurrentDir');
+                const transferProgress = filePanel.querySelector('#__transferProgress');
+                const transferTitle = filePanel.querySelector('#__transferTitle');
+                const transferFill = filePanel.querySelector('#__transferFill');
+                const transferBytes = filePanel.querySelector('#__transferBytes');
+                const transferPercent = filePanel.querySelector('#__transferPercent');
+
+                // 剪贴板设置面板
+                const clipboardPanel = document.createElement('div');
+                clipboardPanel.className = 'clipboard-panel';
+                clipboardPanel.innerHTML = `
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap; margin-bottom:8px;">
+                        <span style="font-size:13px;">设置剪贴板内容</span>
+                    </div>
+                    <textarea id="__clipboardInput" placeholder="输入要设置的内容..."></textarea>
+                    <div style="display:flex;gap:8px;justify-content:flex-end; margin-top:8px;">
+                        <button id="__clipboardSend">发送</button>
+                        <button id="__clipboardCancel">取消</button>
+                    </div>
+                `;
+                const clipboardTextarea = clipboardPanel.querySelector('#__clipboardInput');
+                const clipboardSend = clipboardPanel.querySelector('#__clipboardSend');
+                const clipboardCancel = clipboardPanel.querySelector('#__clipboardCancel');
+
+                const filePicker = document.createElement('input');
+                filePicker.type = 'file';
+                filePicker.multiple = true; // 添加多选属性
+                filePicker.style.display = 'none';
+
+                const cursor = document.createElement('div');
+                cursor.className = 'cursor';
+                const cursorInfo = document.createElement('div');
+                cursorInfo.className = 'cursor-info';
+
+                fullscreenDiv.appendChild(cmdPanel);
+                fullscreenDiv.appendChild(controlsDiv);
+                fullscreenDiv.appendChild(filePanel);
+                fullscreenDiv.appendChild(clipboardPanel);
+                fullscreenDiv.appendChild(filePicker);
+                fullscreenDiv.appendChild(fullscreenImg);
+                fullscreenDiv.appendChild(cursor);
+                fullscreenDiv.appendChild(cursorInfo);
+                const refreshProgressBar = document.createElement('div');
+                refreshProgressBar.className = 'refresh-progress-bar';
+                const refreshProgressBarFill = document.createElement('div');
+                refreshProgressBarFill.className = 'bar';
+                refreshProgressBar.appendChild(refreshProgressBarFill);
+                fullscreenDiv.appendChild(refreshProgressBar);
+                document.body.appendChild(fullscreenDiv);
+                
+                // 👇 在这里添加这三行代码
+                cmdPanel.classList.remove('visible');
+                filePanel.classList.remove('visible');
+                clipboardPanel.classList.remove('visible');
+
+                // 阻止面板滚轮冒泡
+                [cmdPanel, filePanel, clipboardPanel].forEach(panel => {
+                    panel.addEventListener('wheel', (e) => {
+                        e.stopPropagation();
+                    }, { passive: false });
+                });
+
+                let isUploading = false;
+                let isControlMode = false;
+                let followMouseEnabled = false;
+                let followRefreshEnabled = false;
+                let scale = 1, posX = 0, posY = 0, isFirstLoad = true;
+                let lastCursorClientX = null, lastCursorClientY = null;
+                let isDraggingControl = false;
+                let pendingControlPress = false;
+                let dragStarted = false;
+                let startX = 0, startY = 0;
+                let lastDragX = 0, lastDragY = 0;
+                let screenshotInFlight = false;
+                let autoRefreshTimer = null;
+                let autoRefreshOn = false;
+                let autoRefreshInterval = parseInt(localStorage.getItem('autoRefreshInterval') || '5000', 10);
+                let screenshotQueued = false;
+                let lastMoveRequestTime = 0;
+                let lastMoveRefreshTime = 0;
+                const DRAG_START_DISTANCE = 5;
+                const DRAG_HOLD_DISTANCE = 2;
+                const DRAG_HOLD_MS = 220;
+
+                function formatBytes(bytes) {
+                    if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+                    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                    let value = bytes;
+                    let unitIndex = 0;
+                    while (value >= 1024 && unitIndex < units.length - 1) {
+                        value /= 1024;
+                        unitIndex++;
+                    }
+                    return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+                }
+
+                function showTransferProgress(type, name, done = 0, total = 0) {
+                    filePanel.classList.add('visible');
+                    transferProgress.style.display = 'block';
+                    transferProgress.classList.remove('error');
+                    transferTitle.textContent = `${type}: ${name}`;
+                    updateTransferProgress(done, total);
+                }
+
+                function updateTransferProgress(done, total) {
+                    const hasTotal = Number.isFinite(total) && total > 0;
+                    const safeDone = Math.max(0, done || 0);
+                    transferProgress.classList.toggle('indeterminate', !hasTotal);
+                    if (hasTotal) {
+                        const percent = Math.min(100, Math.round((safeDone / total) * 100));
+                        transferFill.style.width = `${percent}%`;
+                        transferBytes.textContent = `${formatBytes(safeDone)} / ${formatBytes(total)}`;
+                        transferPercent.textContent = `${percent}%`;
+                    } else {
+                        transferFill.style.width = '';
+                        transferBytes.textContent = `已传输 ${formatBytes(safeDone)}`;
+                        transferPercent.textContent = '';
+                    }
+                }
+
+                function finishTransferProgress(message, totalBytes = 0) {
+                    transferProgress.classList.remove('indeterminate', 'error');
+                    transferFill.style.width = '100%';
+                    transferTitle.textContent = message;
+                    if (totalBytes > 0) {
+                        transferBytes.textContent = formatBytes(totalBytes);
+                    }
+                    transferPercent.textContent = '100%';
+                }
+
+                function failTransferProgress(message) {
+                    transferProgress.classList.remove('indeterminate');
+                    transferProgress.classList.add('error');
+                    transferFill.style.width = '100%';
+                    transferTitle.textContent = message;
+                    transferPercent.textContent = '失败';
+                }
+
+                function applyTransform() {
+                    fullscreenImg.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+                }
+
+                function updateCursorPosition(clientX, clientY) {
+                    lastCursorClientX = clientX; lastCursorClientY = clientY;
+                    cursor.style.left = clientX + 'px'; cursor.style.top = clientY + 'px';
+                    const rect = fullscreenImg.getBoundingClientRect();
+                    const relX = clientX - rect.left, relY = clientY - rect.top;
+                    const screenX = Math.round((relX / rect.width) * fullscreenImg.naturalWidth);
+                    const screenY = Math.round((relY / rect.height) * fullscreenImg.naturalHeight);
+                    cursorInfo.textContent = `X: ${screenX}, Y: ${screenY}`;
+                    cursorInfo.style.left = (clientX + 15) + 'px'; cursorInfo.style.top = (clientY + 15) + 'px';
+                }
+
+                function initCursorCenter() {
+                    if (lastCursorClientX != null && lastCursorClientY != null) {
+                        updateCursorPosition(lastCursorClientX, lastCursorClientY);
+                        return;
+                    }
+                    const rect = fullscreenImg.getBoundingClientRect();
+                    updateCursorPosition(rect.left + rect.width/2, rect.top + rect.height/2);
+                }
+
+                function enableControlOverlay() {
+                    cursor.style.display = 'block'; cursor.style.opacity = '1';
+                    cursorInfo.style.display = 'block';
+                }
+                function disableControlOverlay() {
+                    cursor.style.display = 'none'; cursorInfo.style.display = 'none';
+                }
+
+                function setFollowMode(mode) {
+                    // mode: 'off' | 'b' | 'm'
+                    // B：移动鼠标并刷新图片；M：仅移动鼠标不刷新图片
+                    followMouseEnabled = (mode !== 'off');
+                    followRefreshEnabled = (mode === 'b');
+                    followMouseBtn.classList.toggle('active', mode === 'b');
+                    followMouseNoRefreshBtn.classList.toggle('active', mode === 'm');
+                    followMouseBtn.title = mode === 'b' ? 'B 已开启：移动鼠标并刷新图片' : 'B 已关闭：移动不控制鼠标、不刷新图片';
+                    followMouseNoRefreshBtn.title = mode === 'm' ? 'M 已开启：移动鼠标不刷新图片' : 'M 已关闭：移动控制鼠标、不刷新图片';
+                }
+
+                function setMode(controlOn) {
+                    isControlMode = controlOn;
+                    modeBtn.textContent = controlOn ? 'c' : 'v';
+                    modeBtn.title = controlOn ? '控制模式' : '看图模式';
+                    fullscreenDiv.classList.toggle('control-mode', isControlMode);
+                    fullscreenDiv.classList.toggle('view-mode', !isControlMode);
+                    fullscreenImg.style.cursor = isControlMode ? 'none' : 'grab';
+                    if (isControlMode) enableControlOverlay(); else disableControlOverlay();
+                    followMouseBtn.style.display = isControlMode ? 'flex' : 'none';
+                    followMouseNoRefreshBtn.style.display = isControlMode ? 'flex' : 'none';
+                    setFollowMode('off');
+                    [cmdBtn, uploadBtn, dirBtn, getClipboardBtn, setClipboardBtn].forEach(btn => {
+                        btn.style.opacity = isControlMode ? '0.45' : '1';
+                        btn.style.pointerEvents = isControlMode ? 'none' : 'auto';
+                    });
+                    if (isControlMode) {
+                        cmdPanel.classList.remove('visible');
+                        filePanel.classList.remove('visible');
+                        clipboardPanel.classList.remove('visible');
+                    }
+                    localStorage.setItem('fullscreenMode', controlOn ? 'control' : 'view');
+                }
+
+                function closeSidePanels() {
+                    cmdPanel.classList.remove('visible');
+                    filePanel.classList.remove('visible');
+                    clipboardPanel.classList.remove('visible');
+                }
+
+                // 点击空白处理（看图模式/控制模式点空白处都刷新；点图片交给控制点击处理器）
+                fullscreenDiv.addEventListener('click', (e) => {
+                    if (e.target !== fullscreenDiv) return;
+                    if (cmdPanel.classList.contains('visible') || filePanel.classList.contains('visible') || clipboardPanel.classList.contains('visible')) {
+                        closeSidePanels();
+                    } else {
+                        refreshFullscreenImage();
+                    }
+                });
+
+                // 长按空白退出
+                fullscreenDiv.addEventListener('mousedown', (e) => {
+                    if (e.target !== fullscreenDiv) return;
+                    let timer = setTimeout(() => {
+                        timer = null;
+                        fullscreenDiv.remove();
+                    }, 800);
+                    const onMouseUp = () => {
+                        clearTimeout(timer);
+                        fullscreenDiv.removeEventListener('mouseup', onMouseUp);
+                    };
+                    fullscreenDiv.addEventListener('mouseup', onMouseUp);
+                });
+
+                // 阻止按钮/面板区域冒泡
+                fullscreenDiv.addEventListener('mousedown', (e) => {
+                    if (cmdPanel.contains(e.target) || filePanel.contains(e.target) || clipboardPanel.contains(e.target) ||
+                        cmdBtn.contains(e.target) || dirBtn.contains(e.target) || uploadBtn.contains(e.target) ||
+                        getClipboardBtn.contains(e.target) || setClipboardBtn.contains(e.target)) {
+                        e.stopPropagation();
+                    }
+                }, true);
+
+                closeBtn.onclick = (e) => { e.stopPropagation(); fullscreenDiv.remove(); };
+
+                // 自动刷新：点击 ↻ 开关；长按 / 右键 ↻ 打开间隔面板
+                let longPressTimer = null, longPressFired = false;
+                function startAutoRefresh() {
+                    stopAutoRefresh();
+                    autoRefreshTimer = setInterval(() => refreshFullscreenImage(), autoRefreshInterval);
+                }
+                function stopAutoRefresh() {
+                    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+                }
+                function updateAutoRefreshBtn() {
+                    if (autoRefreshOn) {
+                        refreshBtn.classList.add('active');
+                        refreshBtn.title = `自动刷新中（每 ${autoRefreshInterval / 1000} 秒）· 点击停止`;
+                    } else {
+                        refreshBtn.classList.remove('active');
+                        refreshBtn.title = '刷新图片（点击开启自动刷新 · 长按/右键设置间隔）';
+                    }
+                }
+                function toggleAutoRefresh() {
+                    autoRefreshOn = !autoRefreshOn;
+                    if (autoRefreshOn) startAutoRefresh(); else stopAutoRefresh();
+                    updateAutoRefreshBtn();
+                }
+                function openAutoRefreshPanel() {
+                    if (autoRefreshPanel.style.display === 'block') return; // 已打开则避免重复绑定监听
+                    const rect = refreshBtn.getBoundingClientRect();
+                    autoRefreshPanel.style.display = 'block';
+                    const pw = autoRefreshPanel.offsetWidth, ph = autoRefreshPanel.offsetHeight;
+                    let left = rect.left + window.scrollX;
+                    let top = rect.bottom + window.scrollY + 6;
+                    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+                    if (top + ph > window.innerHeight - 8) top = rect.top + window.scrollY - ph - 6;
+                    autoRefreshPanel.style.left = left + 'px';
+                    autoRefreshPanel.style.top = top + 'px';
+                    arSlider.value = String(autoRefreshInterval / 1000);
+                    arValue.textContent = (autoRefreshInterval / 1000) + ' 秒';
+                    arStatus.textContent = '当前：' + (autoRefreshOn ? '自动刷新中' : '已停止');
+                    document.addEventListener('click', onDocClick);
+                    document.addEventListener('keydown', onDocKey);
+                }
+                function closeAutoRefreshPanel() {
+                    autoRefreshPanel.style.display = 'none';
+                    document.removeEventListener('click', onDocClick);
+                    document.removeEventListener('keydown', onDocKey);
+                }
+                function applyAutoRefreshInterval() {
+                    autoRefreshInterval = parseInt(arSlider.value, 10) * 1000;
+                    localStorage.setItem('autoRefreshInterval', String(autoRefreshInterval));
+                    arValue.textContent = (autoRefreshInterval / 1000) + ' 秒';
+                    arStatus.textContent = '当前：' + (autoRefreshOn ? '自动刷新中' : '已停止');
+                    if (autoRefreshOn) startAutoRefresh();
+                }
+                function onDocClick(e) {
+                    if (autoRefreshPanel.contains(e.target) || e.target === refreshBtn) return;
+                    closeAutoRefreshPanel();
+                }
+                function onDocKey(e) {
+                    if (e.key === 'Escape') closeAutoRefreshPanel();
+                }
+                refreshBtn.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    longPressFired = false;
+                    if (longPressTimer) clearTimeout(longPressTimer);
+                    longPressTimer = setTimeout(() => {
+                        longPressFired = true;
+                        openAutoRefreshPanel();
+                    }, 450);
+                });
+                refreshBtn.addEventListener('mouseup', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+                refreshBtn.addEventListener('mouseleave', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+                refreshBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (longPressFired) { longPressFired = false; return; }
+                    toggleAutoRefresh();
+                });
+                refreshBtn.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openAutoRefreshPanel();
+                });
+                updateAutoRefreshBtn();
+
+                function showRefreshProgress() {
+                    refreshProgressBar.classList.add('active');
+                }
+                function hideRefreshProgress() {
+                    refreshProgressBar.classList.remove('active');
+                }
+
+                async function refreshFullscreenImage(autoAfterControl = false) {
+                    const currentClientId = fullscreenImg.dataset.clientid; // 从图片获取最新ID
+                    // 拉取图片期间：直接丢弃本次请求，避免高频并发导致客户端堵塞/请求失败
+                    if (screenshotInFlight) {
+                        return;
+                    }
+                    // 仅 M 模式：控制操作（点击/拖拽/滚轮/右键/键盘等）后的自动刷新不触发；off/B 模式照旧刷新
+                    if (autoAfterControl && followMouseEnabled && !followRefreshEnabled) return;
+                    screenshotInFlight = true;
+                    showRefreshProgress();
+                    try {
+                        const newUrl = await getScreenshot(currentClientId, true);
+                        if (!newUrl || fullscreenImg.dataset.clientid !== currentClientId) {
+                            return;
+                        }
+                        fullscreenImg.src = newUrl;
+
+                        // 同时更新主界面对应的卡片图片
+                        const cardImg = document.querySelector(`.client-card img[data-clientid="${currentClientId}"]`);
+                        if (cardImg) {
+                            cardImg.src = newUrl;
+                        }
+                    } catch (err) {
+                        showToast('刷新截图失败: ' + err.message, 'error');
+                    } finally {
+                        screenshotInFlight = false;
+                        hideRefreshProgress();
+                    }
+                }
+
+                function getKnownFileSize(item) {
+                    const size = Number(item && item.size);
+                    return Number.isFinite(size) && size >= 0 ? size : 0;
+                }
+
+                async function downloadFile(item) {
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    const fileName = item.name;
+                    const totalSize = getKnownFileSize(item);
+                    showTransferProgress('下载', fileName, 0, totalSize);
+                    try {
+                        const downloadUrl = `${getBaseUrl()}/api/download`;
+                        const resp = await fetch(downloadUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ client_id: currentClientId, data: { path: fileName } })
+                        });
+                        if (!resp.ok) {
+                            const text = await resp.text();
+                            throw new Error(`HTTP ${resp.status}: ${text}`);
+                        }
+
+                        const chunks = [];
+                        let received = 0;
+                        if (resp.body && resp.body.getReader) {
+                            const reader = resp.body.getReader();
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                chunks.push(value);
+                                received += value.byteLength;
+                                updateTransferProgress(received, totalSize);
+                            }
+                        } else {
+                            const blob = await resp.blob();
+                            received = blob.size;
+                            updateTransferProgress(received, totalSize || received);
+                            triggerBrowserDownload(blob, fileName);
+                            finishTransferProgress(`下载完成: ${fileName}`, received);
+                            return;
+                        }
+
+                        const blob = new Blob(chunks, { type: resp.headers.get('Content-Type') || 'application/octet-stream' });
+                        triggerBrowserDownload(blob, fileName);
+                        finishTransferProgress(`下载完成: ${fileName}`, received);
+                    } catch (err) {
+                        failTransferProgress(`下载失败: ${fileName}`);
+                        throw err;
+                    }
+                }
+
+                // 目录浏览
+                async function loadFileList() {
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    fileListDiv.innerHTML = '加载中...';
+                    try {
+                        const list = await apiExecute(currentClientId, 'list_dir', {});
+                        const cwd = await apiExecute(currentClientId, 'change_dir', { path: '.' });
+                        fileCurrentDirSpan.textContent = cwd.cwd;
+
+                        fileListDiv.innerHTML = '';
+                        
+                        if (cwd.cwd && cwd.cwd !== '/' && !/^[a-zA-Z]:\\$/.test(cwd.cwd)) {
+                            const parentLink = document.createElement('a');
+                            parentLink.textContent = '..';
+                            parentLink.href = '#';
+                            parentLink.style.cssText = 'display:block; padding:6px 8px; margin:2px 0; border:1px solid var(--fullscreen-btn-border); border-radius:8px; text-decoration:none; color:var(--fullscreen-btn-color); background:rgba(0,0,0,.06);';
+                            parentLink.onmouseover = () => parentLink.style.background = 'rgba(0,0,0,.12)';
+                            parentLink.onmouseout = () => parentLink.style.background = 'rgba(0,0,0,.06)';
+                            parentLink.onclick = async (e) => {
+                                e.preventDefault();
+                                await apiExecute(currentClientId, 'change_dir', { path: '..' });
+                                loadFileList();
+                            };
+                            fileListDiv.appendChild(parentLink);
+                        }
+                        // 如果目录为空，只显示返回上级（如果有）
+                        if (!Array.isArray(list) || list.length === 0) {
+                            if (fileListDiv.children.length === 0) {
+                                fileListDiv.innerHTML = '(空目录)';
+                            }
+                            return;
+                        }
+
+                        list.forEach(item => {
+                            const a = document.createElement('a');
+                            const itemSize = getKnownFileSize(item);
+                            a.textContent = item.name + (item.is_dir ? '/' : (itemSize > 0 ? ` (${formatBytes(itemSize)})` : ''));
+                            a.href = '#';
+                            a.style.cssText = 'display:block; padding:6px 8px; margin:2px 0; border:1px solid var(--fullscreen-btn-border); border-radius:8px; text-decoration:none; color:var(--fullscreen-btn-color); background:rgba(0,0,0,.06);';
+                            a.onmouseover = () => a.style.background = 'rgba(0,0,0,.12)';
+                            a.onmouseout = () => a.style.background = 'rgba(0,0,0,.06)';
+                            if (item.is_dir) {
+                                a.onclick = async (e) => {
+                                    e.preventDefault();
+                                    await apiExecute(currentClientId, 'change_dir', { path: item.name });
+                                    loadFileList();
+                                };
+                            } else {
+                                a.onclick = async (e) => {
+                                    e.preventDefault();
+                                    try {
+                                        await downloadFile(item);
+                                        showToast('下载完成', 'success');
+                                    } catch (err) {
+                                        showToast('下载失败: ' + err.message, 'error');
+                                    }
+                                };
+                            }
+                            fileListDiv.appendChild(a);
+                        });
+                    } catch (err) {
+                        fileListDiv.innerHTML = `加载失败: ${err.message}`;
+                    }
+                }
+
+                dirBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (isControlMode) return;
+                    
+                    // 关闭其他面板
+                    cmdPanel.classList.remove('visible');
+                    clipboardPanel.classList.remove('visible');
+                    
+                    // 切换当前面板
+                    if (!filePanel.classList.contains('visible')) {
+                        filePanel.classList.add('visible');
+                        loadFileList();
+                    } else {
+                        filePanel.classList.remove('visible');
+                    }
+                };
+
+                getClipboardBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (isControlMode) return;
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    try {
+                        const data = await apiExecute(currentClientId, 'get_clipboard', {});
+                        const text = data.text;
+                        const success = await copyTextToClipboard(text);
+                        if (success) {
+                            showToast('已复制到浏览器剪贴板', 'success');
+                        } else {
+                            showToast('复制失败，请手动复制', 'error');
+                        }
+                    } catch (err) {
+                        showToast('获取剪贴板失败: ' + err.message, 'error');
+                    }
+                });
+
+                setClipboardBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (isControlMode) return;
+                    // 关闭其他面板
+                    cmdPanel.classList.remove('visible');
+                    filePanel.classList.remove('visible');
+                    // 切换当前面板
+                    if (!clipboardPanel.classList.contains('visible')) {
+                        clipboardPanel.classList.add('visible');
+                        clipboardTextarea.value = '';
+                        clipboardTextarea.focus();
+                    } else {
+                        clipboardPanel.classList.remove('visible');
+                    }
+                });
+
+                clipboardSend.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const text = clipboardTextarea.value.trim();
+                    if (!text) {
+                        showToast('请输入内容', 'error');
+                        return;
+                    }
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    try {
+                        await apiExecute(currentClientId, 'set_clipboard', { text });
+                        showToast('剪贴板设置成功', 'success');
+                        clipboardPanel.classList.remove('visible');
+                    } catch (err) {
+                        showToast('设置剪贴板失败: ' + err.message, 'error');
+                    }
+                });
+
+                clipboardCancel.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clipboardPanel.classList.remove('visible');
+                });
+                
+                async function runCommand(cmd) {
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    if (!currentClientId) { showToast('未连接', 'error'); return; }
+                    
+                    // 获取后台运行复选框的状态
+                    const asyncCheckbox = document.getElementById('asyncCheckbox');
+                    const isAsync = asyncCheckbox ? asyncCheckbox.checked : false;
+                    
+                    try {
+                        // 构建请求数据，如果 isAsync 为 true，则添加 async: true
+                        const reqData = { command: cmd, timeout: 30 };
+                        if (isAsync) {
+                            reqData.async = true;
+                        }
+                        
+                        const data = await apiExecute(currentClientId, 'cmd', reqData);
+                        const output = data.output || '';
+                        const current = cmdOut.textContent;
+                        cmdOut.textContent = `> ${cmd}\n${output}\n\n` + (current === '输出会显示在这里…' ? '' : current);
+                        
+                        // 如果执行的是有参数的 cd 命令，刷新文件列表
+                        if (cmd.startsWith('cd ') && data.cwd) {
+                            loadFileList();
+                        }
+                    } catch (err) {
+                        cmdOut.textContent = `> ${cmd}\n错误: ${err.message}\n\n` + cmdOut.textContent;
+                    }
+                }
+                                
+                cmdSend.onclick = async (e) => {
+                    e.stopPropagation();
+                    const cmd = cmdInput.value.trim();
+                    if (!cmd) return;
+                    cmdInput.value = '';
+                    await runCommand(cmd);
+                };
+                // 命令历史记录
+                let commandHistory = [];
+                let historyIndex = -1;
+                
+                // 命令输入框事件
+                cmdInput.addEventListener('keydown', async (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const cmd = cmdInput.value.trim();
+                        if (!cmd) return;
+                        
+                        // 添加到历史记录（避免连续重复）
+                        if (commandHistory[commandHistory.length - 1] !== cmd) {
+                            commandHistory.push(cmd);
+                        }
+                        historyIndex = commandHistory.length; // 重置索引
+                        
+                        cmdInput.value = '';
+                        await runCommand(cmd);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (commandHistory.length > 0 && historyIndex > 0) {
+                            historyIndex--;
+                            cmdInput.value = commandHistory[historyIndex];
+                            // 将光标移到末尾
+                            setTimeout(() => {
+                                cmdInput.selectionStart = cmdInput.selectionEnd = cmdInput.value.length;
+                            }, 0);
+                        }
+                    } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (historyIndex < commandHistory.length - 1) {
+                            historyIndex++;
+                            cmdInput.value = commandHistory[historyIndex];
+                        } else if (historyIndex === commandHistory.length - 1) {
+                            historyIndex = commandHistory.length;
+                            cmdInput.value = '';
+                        }
+                    }
+                });
+                cmdClear.onclick = (e) => { e.stopPropagation(); cmdOut.textContent = ''; };
+                cmdBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (isControlMode) return;
+                    // 关闭其他面板
+                    filePanel.classList.remove('visible');
+                    clipboardPanel.classList.remove('visible');
+                    // 切换当前面板
+                    if (!cmdPanel.classList.contains('visible')) {
+                        cmdPanel.classList.add('visible');
+                        // 可选：聚焦输入框
+                        setTimeout(() => cmdInput?.focus(), 100);
+                    } else {
+                        cmdPanel.classList.remove('visible');
+                    }
+                };
+
+                async function uploadFile(file, batchLabel = '') {
+                    isUploading = true;
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    const displayName = batchLabel ? `${batchLabel} ${file.name}` : file.name;
+                    showTransferProgress('上传', displayName, 0, file.size);
+                    try {
+                        const fileSize = file.size;
+                        const chunkSize = 1 << 20;
+                        const totalChunks = Math.ceil(fileSize / chunkSize);
+                        const startData = await apiExecute(currentClientId, 'upload_start', {
+                            path: file.name,
+                            total_size: fileSize
+                        });
+                        const sessionId = startData.session_id;
+                        let uploadedBytes = 0;
+                        for (let i = 0; i < totalChunks; i++) {
+                            const start = i * chunkSize;
+                            const end = Math.min(start + chunkSize, fileSize);
+                            const chunkBlob = file.slice(start, end);
+                            await apiUploadChunk(currentClientId, sessionId, i, chunkBlob);
+                            uploadedBytes = end;
+                            updateTransferProgress(uploadedBytes, fileSize);
+                        }
+                        await apiExecute(currentClientId, 'upload_finish', { session_id: sessionId });
+                        finishTransferProgress(`上传完成: ${file.name}`, fileSize);
+                        cmdOut.textContent = `> 上传完成: ${file.name}\n` + cmdOut.textContent;
+                        showToast('上传成功', 'success');
+                        return true;
+                    } catch (err) {
+                        failTransferProgress(`上传失败: ${file.name}`);
+                        cmdOut.textContent = `> 上传失败: ${err.message}\n` + cmdOut.textContent;
+                        showToast('上传失败: ' + err.message, 'error');
+                        return false;
+                    } finally {
+                        isUploading = false;
+                    }
+                }
+                uploadBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (isControlMode) return;
+                    filePicker.click();
+                };
+                
+                filePicker.onchange = async () => {
+                    const files = Array.from(filePicker.files);
+                    if (files.length === 0) return;
+                    
+                    // 显示上传开始提示
+                    showToast(`开始上传 ${files.length} 个文件...`, 'success');
+                    
+                    let failedCount = 0;
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        showToast(`正在上传 (${i+1}/${files.length}): ${file.name}`, 'success');
+                        const ok = await uploadFile(file, `(${i+1}/${files.length})`);
+                        if (!ok) failedCount++;
+                    }
+                    
+                    if (failedCount === 0) {
+                        showToast('所有文件上传完成', 'success');
+                    } else {
+                        showToast(`上传完成，失败 ${failedCount} 个`, 'error');
+                    }
+                    filePicker.value = '';
+                };
+                
+                modeBtn.onclick = (e) => { e.stopPropagation(); setMode(!isControlMode); };
+                followMouseBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (!isControlMode) return;
+                    setFollowMode(followMouseEnabled && followRefreshEnabled ? 'off' : 'b');
+                };
+                followMouseNoRefreshBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (!isControlMode) return;
+                    setFollowMode(followMouseEnabled && !followRefreshEnabled ? 'off' : 'm');
+                };
+
+                // ---------- 控制模式：鼠标事件 ----------
+
+                fullscreenDiv.addEventListener('mousemove', (e) => {
+                    if (!isControlMode) return;
+                    updateCursorPosition(e.clientX, e.clientY);
+
+                    const rect = fullscreenImg.getBoundingClientRect();
+                    if (rect.width === 0 || rect.height === 0) return;
+
+                    const insideImage = e.clientX >= rect.left && e.clientX <= rect.right &&
+                                        e.clientY >= rect.top && e.clientY <= rect.bottom;
+                    if (!insideImage || isDraggingControl || pendingControlPress) return;
+                    if (!followMouseEnabled) return;
+
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    if (!currentClientId) return;
+
+                    const now = Date.now();
+                    if (!followRefreshEnabled) {
+                        // M 模式：不加节流，每个鼠标移动事件都发送鼠标请求
+                        const x = Math.round(((e.clientX - rect.left) / rect.width) * fullscreenImg.naturalWidth);
+                        const y = Math.round(((e.clientY - rect.top) / rect.height) * fullscreenImg.naturalHeight);
+                        apiExecute(currentClientId, 'mouse_move', { x, y }).catch(() => {});
+                    } else {
+                        // B 模式：保持 25ms 节流
+                        if (now - lastMoveRequestTime >= 25) {
+                            lastMoveRequestTime = now;
+                            const x = Math.round(((e.clientX - rect.left) / rect.width) * fullscreenImg.naturalWidth);
+                            const y = Math.round(((e.clientY - rect.top) / rect.height) * fullscreenImg.naturalHeight);
+                            apiExecute(currentClientId, 'mouse_move', { x, y }).catch(() => {});
+                        }
+                    }
+                    if (followRefreshEnabled && now - lastMoveRefreshTime >= 500) {
+                        lastMoveRefreshTime = now;
+                        refreshFullscreenImage();
+                    }
+                });
+
+                fullscreenImg.addEventListener('mousedown', (e) => {
+                    if (!isControlMode) return;
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    lastDragX = startX;
+                    lastDragY = startY;
+                    isDraggingControl = false;
+                    pendingControlPress = true;
+                    dragStarted = false;
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    const pressStartedAt = Date.now();
+
+                    const rect = fullscreenImg.getBoundingClientRect();
+                    const downX = Math.round(((startX - rect.left) / rect.width) * fullscreenImg.naturalWidth);
+                    const downY = Math.round(((startY - rect.top) / rect.height) * fullscreenImg.naturalHeight);
+                    apiExecute(currentClientId, 'mouse_move', { x: downX, y: downY }).catch(console.error);
+                    
+                    // 拖拽移动节流
+                    let lastDragMove = 0;
+                    let dragStartPromise = null;
+                    const DRAG_REFRESH_INTERVAL = 200; // 拖拽移动刷新间隔
+
+                    const onMouseMove = async (moveEvent) => {
+                        if (!isControlMode) return;
+                        moveEvent.preventDefault();
+                        const newX = moveEvent.clientX;
+                        const newY = moveEvent.clientY;
+                        const dx = newX - startX;
+                        const dy = newY - startY;
+                        const distance = Math.sqrt(dx*dx + dy*dy);
+                        const heldMs = Date.now() - pressStartedAt;
+                        const shouldStartDrag = distance > DRAG_START_DISTANCE ||
+                            (heldMs > DRAG_HOLD_MS && distance > DRAG_HOLD_DISTANCE);
+
+                        if (!isDraggingControl && shouldStartDrag) {
+                            isDraggingControl = true;
+                            const rect = fullscreenImg.getBoundingClientRect();
+                            const downX = Math.round(((startX - rect.left) / rect.width) * fullscreenImg.naturalWidth);
+                            const downY = Math.round(((startY - rect.top) / rect.height) * fullscreenImg.naturalHeight);
+                            dragStartPromise = (async () => {
+                                await apiExecute(currentClientId, 'mouse_move', { x: downX, y: downY });
+                                await apiExecute(currentClientId, 'mouse_down', { button: 'left', direction: 'down' });
+                                dragStarted = true;
+                            })();
+                        }
+
+                        const now = Date.now();
+                        if (isDraggingControl && now - lastMoveRequestTime >= 25) {
+                            lastMoveRequestTime = now;
+                            const startPromise = dragStartPromise;
+                            if (startPromise) {
+                                await startPromise;
+                                if (dragStartPromise === startPromise) dragStartPromise = null;
+                            }
+                            const deltaX = newX - lastDragX;
+                            const deltaY = newY - lastDragY;
+                            if (deltaX !== 0 || deltaY !== 0) {
+                                const rectNow = fullscreenImg.getBoundingClientRect();
+                                const absX = Math.round(((newX - rectNow.left) / rectNow.width) * fullscreenImg.naturalWidth);
+                                const absY = Math.round(((newY - rectNow.top) / rectNow.height) * fullscreenImg.naturalHeight);
+                                await apiExecute(currentClientId, 'mouse_move', { x: absX, y: absY });
+                                lastDragX = newX;
+                                lastDragY = newY;
+                                
+                                // 拖拽移动时刷新截图（节流，仅 B 模式刷新）
+                                if (followRefreshEnabled && now - lastDragMove >= DRAG_REFRESH_INTERVAL) {
+                                    lastDragMove = now;
+                                    setTimeout(() => refreshFullscreenImage(true), 200);
+                                }
+                            }
+                        }
+                    };
+
+                    const onMouseUp = async (upEvent) => {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                        pendingControlPress = false;
+                        if (!isControlMode) {
+                            isDraggingControl = false;
+                            dragStarted = false;
+                            return;
+                        }
+
+                        if (isDraggingControl) {
+                            const startPromise = dragStartPromise;
+                            if (startPromise) {
+                                await startPromise;
+                                if (dragStartPromise === startPromise) dragStartPromise = null;
+                            }
+                            await apiExecute(currentClientId, 'mouse_up', { button: 'left', direction: 'up' });
+                            // 拖拽移动时刷新截图（节流）
+                            const now = Date.now();
+                            if (now - lastDragMove >= DRAG_REFRESH_INTERVAL) {
+                                lastDragMove = now;
+                                setTimeout(() => refreshFullscreenImage(true), 200);
+                            }
+                        } else if (!isDraggingControl) {
+                            // 未拖拽 → 单击：先移动，再单击
+                            const rect = fullscreenImg.getBoundingClientRect();
+                            const x = Math.round(((startX - rect.left) / rect.width) * fullscreenImg.naturalWidth);
+                            const y = Math.round(((startY - rect.top) / rect.height) * fullscreenImg.naturalHeight);
+                            const currentClientId = fullscreenImg.dataset.clientid;
+                            await apiExecute(currentClientId, 'mouse_move', { x, y });
+                            // await apiExecute(currentClientId, 'mouse_click', { button: 'left', double: false });
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            await apiExecute(currentClientId, 'mouse_click', { button: 'left', double: false });
+                            setTimeout(() => refreshFullscreenImage(true), 200);
+                        }
+                        // 重置状态（可选）
+                        isDraggingControl = false;
+                        dragStarted = false;
+                    };
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+
+                // fullscreenImg.addEventListener('click', async (e) => {
+                //     if (!isControlMode) return;
+                //     if (isDraggingControl) return;
+                //     const rect = fullscreenImg.getBoundingClientRect();
+                //     const x = Math.round(((e.clientX - rect.left) / rect.width) * fullscreenImg.naturalWidth);
+                //     const y = Math.round(((e.clientY - rect.top) / rect.height) * fullscreenImg.naturalHeight);
+                //     const currentClientId = fullscreenImg.dataset.clientid;
+                //     await apiExecute(currentClientId, 'mouse_move', { x, y });
+                //     await apiExecute(currentClientId, 'mouse_click', { button: 'left', double: false });
+                //     setTimeout(() => refreshFullscreenImage(), 200);
+                // });
+
+                fullscreenImg.addEventListener('contextmenu', async (e) => {
+                    e.preventDefault();
+                    if (!isControlMode) return;
+                    const rect = fullscreenImg.getBoundingClientRect();
+                    const x = Math.round(((e.clientX - rect.left) / rect.width) * fullscreenImg.naturalWidth);
+                    const y = Math.round(((e.clientY - rect.top) / rect.height) * fullscreenImg.naturalHeight);
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    await apiExecute(currentClientId, 'mouse_move', { x, y });
+                    await apiExecute(currentClientId, 'mouse_click', { button: 'right', double: false });
+                    setTimeout(() => refreshFullscreenImage(true), 200);
+                });
+
+                fullscreenImg.addEventListener('mousedown', async (e) => {
+                    if (!isControlMode) return;
+                    if (e.button !== 1) return;
+                    e.preventDefault();
+                    const rect = fullscreenImg.getBoundingClientRect();
+                    const x = Math.round(((e.clientX - rect.left) / rect.width) * fullscreenImg.naturalWidth);
+                    const y = Math.round(((e.clientY - rect.top) / rect.height) * fullscreenImg.naturalHeight);
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    await apiExecute(currentClientId, 'mouse_move', { x, y });
+                    setTimeout(() => refreshFullscreenImage(true), 200);
+                });
+
+				// 滚轮相关变量
+				let scrollAccumX = 0;
+				let scrollAccumY = 0;
+				let scrollTimer = null;
+				const SCROLL_THROTTLE = 100; // 滚动请求节流间隔（毫秒）
+
+				// 截图刷新节流
+				let lastScrollRefresh = 0;
+				const SCROLL_REFRESH_INTERVAL = 200; // 截图刷新最小间隔（毫秒）
+
+				fullscreenDiv.addEventListener('wheel', async (e) => {
+					const rect = fullscreenImg.getBoundingClientRect();
+					const mouseX = e.clientX;
+					const mouseY = e.clientY;
+					
+					// 只在图片区域内处理
+					if (mouseX < rect.left || mouseX > rect.right || 
+						mouseY < rect.top || mouseY > rect.bottom) {
+						return;
+					}
+					
+					const relX = mouseX - rect.left;
+					const relY = mouseY - rect.top;
+					const pixelX = Math.round((relX / rect.width) * fullscreenImg.naturalWidth);
+					const pixelY = Math.round((relY / rect.height) * fullscreenImg.naturalHeight);
+					
+					// 看图模式：缩放图片
+					if (!isControlMode) {
+						e.preventDefault();
+						const delta = e.deltaY > 0 ? 0.9 : 1.1;
+						const newScale = scale * delta;
+						if (newScale >= 0.5 && newScale <= 3) {
+							scale = newScale;
+							applyTransform();
+						}
+						return;
+					}
+					
+					// 控制模式：发送滚轮命令
+					e.preventDefault();
+					
+					const currentClientId = fullscreenImg.dataset.clientid;
+					try {
+						// 先移动鼠标到当前位置
+						await apiExecute(currentClientId, 'mouse_move', { x: pixelX, y: pixelY });
+						
+						// 标准化滚动距离
+						let lines = 0;
+						if (e.deltaMode === 0) {
+							// 像素 -> 行 (假设每行20px)
+							lines = Math.round(e.deltaY / 20);
+						} else if (e.deltaMode === 1) {
+							// 已经是行
+							lines = Math.round(e.deltaY);
+						} else {
+							// 页 -> 行 (假设每页30行)
+							lines = Math.round(e.deltaY * 30);
+						}
+						// 限制一次最多滚动5行
+						lines = Math.min(Math.max(lines, -5), 5);
+						
+						// 累积滚动值
+						scrollAccumX += 0; // 水平滚动暂不处理
+						scrollAccumY += lines;
+						
+						// 清除之前的定时器
+						if (scrollTimer) clearTimeout(scrollTimer);
+						
+						// 设置新的定时器，SCROLL_THROTTLE 毫秒后发送累积的滚动请求
+						scrollTimer = setTimeout(async () => {
+							if (scrollAccumX !== 0 || scrollAccumY !== 0) {
+								try {
+									await apiExecute(currentClientId, 'mouse_scroll', {
+										amountx: scrollAccumX,
+										amounty: -scrollAccumY // 注意方向转换
+									});
+									
+                                    // 截图刷新节流：至少间隔 SCROLL_REFRESH_INTERVAL 毫秒
+                                    const now = Date.now();
+                                    if (now - lastScrollRefresh >= SCROLL_REFRESH_INTERVAL) {
+                                        lastScrollRefresh = now;
+                                        setTimeout(() => refreshFullscreenImage(true), 200);
+                                    }
+									
+									scrollAccumX = 0;
+									scrollAccumY = 0;
+								} catch (err) {
+									console.error('滚轮请求失败:', err);
+								}
+							}
+						}, SCROLL_THROTTLE);
+						
+					} catch (err) {
+						console.error('滚轮操作失败:', err);
+					}
+				}, { passive: false });
+
+                let modifierTimer = null;
+                let pendingModifier = null;
+
+                // 键盘事件
+                let lastKeyRefresh = 0;
+                const KEY_REFRESH_INTERVAL = 200; // 键盘触发截图最小间隔 300ms
+                const handleKeyDown = (e) => {
+                    if (e.key === 'F11') {return;}
+                    // 如果当前焦点在输入框或文本域中，不处理截图刷新
+                    const activeElement = document.activeElement;
+                    const isInputActive = activeElement && (
+                        activeElement.tagName === 'INPUT' || 
+                        activeElement.tagName === 'TEXTAREA' ||
+                        activeElement.isContentEditable
+                    );
+                    
+                    if (isInputActive) {
+                        return; // 输入框中不处理任何键盘事件
+                    }
+                    
+                    // 快捷键：Alt+X 退出全屏（任何模式下都生效）
+                    if (e.altKey && e.key.toLowerCase() === 'x') {
+                        e.preventDefault();
+                        const fullscreenDiv = document.querySelector('.fullscreen');
+                        if (fullscreenDiv) {
+                            fullscreenDiv.remove();
+                        }
+                        return;
+                    }
+                    
+                    // 快捷键：Alt+Z 来回切换 C/V 模式
+                    if (e.altKey && e.key.toLowerCase() === 'z') {
+                        e.preventDefault();
+                        setMode(!isControlMode);
+                        return;
+                    }
+                    
+                    if (!isControlMode) {
+                        e.preventDefault();
+						const now = Date.now();
+						if (now - lastKeyRefresh >= KEY_REFRESH_INTERVAL) {
+							lastKeyRefresh = now;
+							setTimeout(() => refreshFullscreenImage(), 200);
+						}
+						return;
+					}
+                    e.preventDefault();
+                    
+                    let key = e.key;
+                    const keyMap = {
+                        ' ': 'space', 'Enter': 'enter', 'Escape': 'esc', 'Backspace': 'backspace',
+                        'Delete': 'delete', 'Tab': 'tab', 'ArrowUp': 'up', 'ArrowDown': 'down',
+                        'ArrowLeft': 'left', 'ArrowRight': 'right', 'Shift': 'shift',
+                        'Control': 'ctrl', 'Alt': 'alt', 'Meta': 'command'
+                    };
+                    
+                    if (e.altKey) {
+                        const now = Date.now();
+                        if (now - lastKeyRefresh >= KEY_REFRESH_INTERVAL) {
+                            lastKeyRefresh = now;
+                            setTimeout(() => refreshFullscreenImage(true), 200);
+                        }
+                        return;
+                    }
+                    
+                    if (keyMap[key]) key = keyMap[key];
+                    const mods = [];
+                    if (e.ctrlKey) mods.push('ctrl');
+                    if (e.shiftKey) mods.push('shift');
+                    if (e.altKey) mods.push('alt');
+                    if (e.metaKey) mods.push('command');
+                    
+                    const currentClientId = fullscreenImg.dataset.clientid;
+                    
+                    // 判断是否为单独的修饰键（key是修饰键且mods只有一个且匹配）
+                    const isModifierOnly = (key === 'shift' || key === 'ctrl' || key === 'alt' || key === 'command') && mods.length === 1 && mods[0] === key;
+                
+                    if (isModifierOnly) {
+                        // 清除之前的定时器，重新开始计时
+                        if (modifierTimer) clearTimeout(modifierTimer);
+                        pendingModifier = { key, mods };
+                        modifierTimer = setTimeout(() => {
+                            // 单独修饰键延迟后发送
+                            let finalKeys = [...pendingModifier.mods];
+                            if (finalKeys.length === 0 || finalKeys[finalKeys.length-1] !== pendingModifier.key) {
+                                finalKeys.push(pendingModifier.key);
+                            }
+                            apiExecute(currentClientId, 'key_press', { keys: finalKeys }).catch(console.error);
+                        
+                            modifierTimer = null;
+                            pendingModifier = null;
+                        }, 230);
+                        // 刷新截图节流
+                        const now = Date.now();
+                        if (now - lastKeyRefresh >= KEY_REFRESH_INTERVAL) {
+                            lastKeyRefresh = now;
+                            setTimeout(() => refreshFullscreenImage(true), 280);
+                        }
+                        return;
+                    } else {
+                        // 有普通键或组合键，取消之前等待的修饰键
+                        if (modifierTimer) {
+                            clearTimeout(modifierTimer);
+                            modifierTimer = null;
+                            pendingModifier = null;
+                        }
+                        // 构造最终按键数组，避免重复修饰键
+                        let finalKeys = [...mods];
+                        if (finalKeys.length === 0 || finalKeys[finalKeys.length-1] !== key) {
+                            finalKeys.push(key);
+                        }
+                        apiExecute(currentClientId, 'key_press', { keys: finalKeys }).catch(console.error);
+                    }
+                    
+                    
+                    // let keyString;
+                    // if (mods.length) {
+                    //     if (mods[0] === key) {
+                    //         keyString = key;
+                    //     } else {
+                    //         keyString = mods.join('+') + '+' + key;
+                    //     }
+                    // } else {
+                    //     keyString = key;
+                    // }
+                    // apiExecute(currentClientId, 'key_press', { keys: keyString.split('+') }).catch(console.error);
+                    
+                    // 节流刷新截图：至少间隔 KEY_REFRESH_INTERVAL 毫秒
+                    const now = Date.now();
+                    if (now - lastKeyRefresh >= KEY_REFRESH_INTERVAL) {
+                        lastKeyRefresh = now;
+                        setTimeout(() => refreshFullscreenImage(true), 200);
+                    }
+                };
+                document.addEventListener('keydown', handleKeyDown);
+                const cleanup = () => {
+                    document.removeEventListener('keydown', handleKeyDown);
+                    stopAutoRefresh();
+                    closeAutoRefreshPanel();
+                };
+
+                // 看图模式拖动缩放
+                let isDraggingView = false, lastX = 0, lastY = 0, rafId = null;
+                function onViewMouseMove(e) {
+                    if (!isDraggingView || isControlMode) return;
+                    posX += (e.clientX - lastX);
+                    posY += (e.clientY - lastY);
+                    lastX = e.clientX; lastY = e.clientY;
+                    e.preventDefault();
+                }
+                function onViewMouseUp() {
+                    if (!isDraggingView) return;
+                    isDraggingView = false;
+                    fullscreenImg.style.transition = 'transform 0.2s ease';
+                    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+                    window.removeEventListener('mousemove', onViewMouseMove);
+                    window.removeEventListener('mouseup', onViewMouseUp);
+                }
+                fullscreenImg.addEventListener('mousedown', (e) => {
+                    if (isControlMode) return;
+                    if (e.button !== 0) return;
+                    isDraggingView = true;
+                    lastX = e.clientX; lastY = e.clientY;
+                    fullscreenImg.style.transition = 'none';
+                    rafId = requestAnimationFrame(function update() {
+                        if (!isDraggingView) return;
+                        applyTransform();
+                        rafId = requestAnimationFrame(update);
+                    });
+                    window.addEventListener('mousemove', onViewMouseMove, { passive: false });
+                    window.addEventListener('mouseup', onViewMouseUp);
+                    e.preventDefault();
+                });
+
+                fullscreenImg.onload = () => {
+                    if (!isFirstLoad) applyTransform();
+                    isFirstLoad = false;
+                    if (isControlMode) { enableControlOverlay(); initCursorCenter(); }
+                };
+
+                // 初始化模式：从本地存储读取上次状态
+                const lastMode = localStorage.getItem('fullscreenMode');
+                setMode(lastMode === 'control');
+                setTimeout(applyTransform, 0);
+
+                const originalRemove = fullscreenDiv.remove;
+                fullscreenDiv.remove = function() {
+                    cleanup();
+                    originalRemove.call(this);
+                };
+            }
+
+            // ---------- 卡片外观工具 ----------
+            let colorPopoverTarget = null;
+            function getColorPopover() {
+                let popover = document.getElementById('cardColorPopover');
+                if (!popover) {
+                    popover = document.createElement('div');
+                    popover.id = 'cardColorPopover';
+                    popover.className = 'color-popover';
+                    let paletteHtml = '<div class="color-palette">';
+                    COLOR_PALETTE.forEach(color => {
+                        paletteHtml += `<div class="color-swatch" style="background-color: ${color};" data-color="${color}"></div>`;
+                    });
+                    paletteHtml += '</div>';
+                    popover.innerHTML = `
+                        ${paletteHtml}
+                        <input type="color" id="cardCustomColor" title="自定义颜色">
+                        <div class="color-popover-actions">
+                            <button id="cardClearColor">清除颜色</button>
+                            <button id="cardCloseColor">关闭</button>
+                        </div>
+                    `;
+                    document.body.appendChild(popover);
+                    popover.addEventListener('click', (e) => e.stopPropagation());
+                    popover.querySelectorAll('.color-swatch').forEach(swatch => {
+                        swatch.addEventListener('click', () => {
+                            if (colorPopoverTarget) applyCardColor(colorPopoverTarget.card, colorPopoverTarget.clientId, swatch.dataset.color);
+                            hideColorPopover();
+                        });
+                    });
+                    popover.querySelector('#cardCustomColor').addEventListener('input', (e) => {
+                        if (colorPopoverTarget) applyCardColor(colorPopoverTarget.card, colorPopoverTarget.clientId, e.target.value);
+                    });
+                    popover.querySelector('#cardClearColor').addEventListener('click', () => {
+                        if (colorPopoverTarget) applyCardColor(colorPopoverTarget.card, colorPopoverTarget.clientId, '');
+                        hideColorPopover();
+                    });
+                    popover.querySelector('#cardCloseColor').addEventListener('click', hideColorPopover);
+                    document.addEventListener('click', () => hideColorPopover());
+                }
+                return popover;
+            }
+            function hideColorPopover() {
+                const popover = document.getElementById('cardColorPopover');
+                if (popover) popover.classList.remove('visible');
+                colorPopoverTarget = null;
+            }
+            function showCardColorPopover(card, clientId, btn) {
+                const popover = getColorPopover();
+                colorPopoverTarget = { card, clientId };
+                const rect = btn.getBoundingClientRect();
+                popover.style.left = (rect.left + window.scrollX) + 'px';
+                popover.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+                const settings = getCardSettings(clientId);
+                const customInput = popover.querySelector('#cardCustomColor');
+                customInput.value = settings.color || '#58a6ff';
+                popover.classList.add('visible');
+            }
+            function applyCardColor(card, clientId, color) {
+                if (color) {
+                    card.style.borderColor = color;
+                    saveCardSettings(clientId, { color });
+                } else {
+                    card.style.borderColor = '';
+                    saveCardSettings(clientId, { color: '' });
+                }
+            }
+            function applyCardVisibility(card, clientId, visible) {
+                card.classList.toggle('hidden-card', !visible);
+                saveCardSettings(clientId, { hidden: !visible });
+            }
+            function applyCardAppearance(card, clientId) {
+                const settings = getCardSettings(clientId);
+                if (settings.color) card.style.borderColor = settings.color;
+                else card.style.borderColor = '';
+                card.classList.toggle('hidden-card', !!settings.hidden);
+            }
+
+            // ---------- 创建客户端卡片 ----------
+            function createClientCard(clientId) {
+                const card = document.createElement('div');
+                card.className = 'client-card';
+                card.dataset.clientid = clientId;
+
+                card.innerHTML = `
+                    <div class="img-container">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225' viewBox='0 0 400 225'%3E%3Crect width='400' height='225' fill='%23161b22'/%3E%3Ctext x='20' y='120' fill='%238b949e' font-family='monospace' font-size='14'%3E点击加载截图%3C/text%3E%3C/svg%3E" alt="${clientId}" data-clientid="${clientId}">
+                    </div>
+                    <div class="client-card-footer">
+                        <span class="client-id" title="单击重命名">${clientId}</span>
+                        <div class="card-tools">
+                            <button class="card-tool-btn color-btn" title="设置边框颜色">🎨</button>
+                            <button class="card-tool-btn visibility-btn" title="显示/隐藏">👁</button>
+                            <button class="refresh-btn">刷新</button>
+                        </div>
+                    </div>
+                `;
+
+                const imgContainer = card.querySelector('.img-container');
+                const img = card.querySelector('img');
+                const refreshBtn = card.querySelector('.refresh-btn');
+                const clientIdSpan = card.querySelector('.client-id');
+                const colorBtn = card.querySelector('.color-btn');
+                const visibilityBtn = card.querySelector('.visibility-btn');
+
+                // 应用已保存的外观设置
+                applyCardAppearance(card, clientId);
+                visibilityBtn.classList.toggle('active', !card.classList.contains('hidden-card'));
+
+                colorBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showCardColorPopover(card, clientId, colorBtn);
+                });
+                visibilityBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const nowVisible = card.classList.contains('hidden-card');
+                    applyCardVisibility(card, clientId, nowVisible);
+                    visibilityBtn.classList.toggle('active', nowVisible);
+                    if (nowVisible) {
+                        visibilityBtn.title = '显示/隐藏';
+                        visibilityBtn.textContent = '👁';
+                    } else {
+                        visibilityBtn.title = '已隐藏';
+                        visibilityBtn.textContent = '🚫';
+                    }
+                });
+
+                // 单击ID进入内联编辑
+                clientIdSpan.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const currentId = this.textContent;
+                    
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = currentId;
+                    input.className = 'client-id editing';
+                    
+                    this.replaceWith(input);
+                    input.focus();
+                    input.select();
+                
+                    const saveEdit = async () => {
+                        const newId = input.value.trim();
+                        if (newId && newId !== currentId) {
+                            try {
+                                const url = `${getBaseUrl()}/api/rename`;
+                                const resp = await fetch(url, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ client_id: currentId, new_id: newId })
+                                });
+                                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                                const json = await resp.json();
+                                if (json.status === 'ok') {
+                                    // 更新图片上的 data-clientid
+                                    img.dataset.clientid = newId;
+                                    card.dataset.clientid = newId;
+                                    // 迁移卡片外观设置
+                                    renameCardSettings(currentId, newId);
+                                    // 删除旧的截图缓存
+                                    if (screenshotCache.has(currentId)) {
+                                        URL.revokeObjectURL(screenshotCache.get(currentId).url);
+                                        screenshotCache.delete(currentId);
+                                    }
+                                    // 更新显示的ID
+                                    const newSpan = document.createElement('span');
+                                    newSpan.className = 'client-id';
+                                    newSpan.title = '单击重命名';
+                                    newSpan.textContent = newId;
+                                    newSpan.addEventListener('click', arguments.callee);
+                                    input.replaceWith(newSpan);
+                                    showToast('重命名成功', 'success');
+                                } else {
+                                    showToast('重命名失败 json.status : ' + json.message, 'error');
+                                    const oldSpan = document.createElement('span');
+                                    oldSpan.className = 'client-id';
+                                    oldSpan.title = '单击重命名';
+                                    oldSpan.textContent = currentId;
+                                    oldSpan.addEventListener('click', arguments.callee);
+                                    input.replaceWith(oldSpan);
+                                }
+                            } catch (err) {
+                                showToast('重命名失败 err : ' + err.message, 'error');
+                                const oldSpan = document.createElement('span');
+                                oldSpan.className = 'client-id';
+                                oldSpan.title = '单击重命名';
+                                oldSpan.textContent = currentId;
+                                oldSpan.addEventListener('click', arguments.callee);
+                                input.replaceWith(oldSpan);
+                            }
+                        } else {
+                            const oldSpan = document.createElement('span');
+                            oldSpan.className = 'client-id';
+                            oldSpan.title = '单击重命名';
+                            oldSpan.textContent = currentId;
+                            oldSpan.addEventListener('click', arguments.callee);
+                            input.replaceWith(oldSpan);
+                        }
+                    };
+                
+                    input.addEventListener('blur', saveEdit);
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            saveEdit();
+                        } else if (e.key === 'Escape') {
+                            const oldSpan = document.createElement('span');
+                            oldSpan.className = 'client-id';
+                            oldSpan.title = '单击重命名';
+                            oldSpan.textContent = currentId;
+                            oldSpan.addEventListener('click', arguments.callee);
+                            input.replaceWith(oldSpan);
+                        }
+                    });
+                });
+
+                // 点击图片进入全屏
+                imgContainer.addEventListener('click', async () => {
+                    const currentClientId = img.dataset.clientid;
+                    // let imgUrl;
+                    // if (img.src.startsWith('data:')) {
+                    //     imgUrl = await getScreenshot(currentClientId, true);
+                    //     img.src = imgUrl;
+                    // } else {
+                    //     imgUrl = await getScreenshot(currentClientId, false);
+                    //     if (img.src !== imgUrl) {
+                    //         img.src = imgUrl;
+                    //     }
+                    // }
+                    // openFullscreen(imgUrl, currentClientId);
+                    openFullscreen(img.src, currentClientId);
+                });
+
+                async function refreshCardImage() {
+                    const currentClientId = img.dataset.clientid;
+                    // 同一客户端同一时刻只允许 1 个拉取请求：拉取期间丢弃并发请求，避免高频并发导致目标端堵塞/请求失败
+                    if (cardInFlight.has(currentClientId)) return;
+                    cardInFlight.add(currentClientId);
+                    // img.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'225\' viewBox=\'0 0 400 225\'%3E%3Crect width=\'400\' height=\'225\' fill=\'%23161b22\'/%3E%3Ctext x=\'20\' y=\'120\' fill=\'%238b949e\' font-family=\'monospace\' font-size=\'14\'%3E加载中...%3C/text%3E%3C/svg%3E';
+                    try {
+                        const imgUrl = await getScreenshot(currentClientId, true);
+                        if (!imgUrl) return;
+                        img.src = imgUrl;
+                    } catch (err) {
+                        img.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'225\' viewBox=\'0 0 400 225\'%3E%3Crect width=\'400\' height=\'225\' fill=\'%23161b22\'/%3E%3Ctext x=\'20\' y=\'120\' fill=\'%23f85149\' font-family=\'monospace\' font-size=\'14\'%3E截图失败%3C/text%3E%3C/svg%3E';
+                    } finally {
+                        cardInFlight.delete(currentClientId);
+                    }
+                }
+
+                refreshBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    refreshCardImage();
+                });
+
+                return card;
+            }
+            
+            // 刷新全部截图
+            async function refreshAllCards() {
+                const cards = document.querySelectorAll('.client-card:not(.hidden-card)');
+                for (const card of cards) {
+                    const refreshBtn = card.querySelector('.refresh-btn');
+                    if (refreshBtn) refreshBtn.click();
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                showToast('全部刷新完成', 'success');
+            }
+
+            refreshAllBtn.addEventListener('click', refreshAllCards);
+
+            showAllBtn.addEventListener('click', () => {
+                document.querySelectorAll('.client-card').forEach(card => {
+                    const clientId = card.dataset.clientid;
+                    applyCardVisibility(card, clientId, true);
+                    const btn = card.querySelector('.visibility-btn');
+                    if (btn) {
+                        btn.classList.add('active');
+                        btn.title = '显示/隐藏';
+                        btn.textContent = '👁';
+                    }
+                });
+                showToast('已显示全部卡片', 'success');
+            });
+
+            // ---------- 获取客户端列表 ----------
+            async function fetchClients() {
+                const baseUrl = getBaseUrl();
+                const key = getPassword();
+                const url = key ? `${baseUrl}/api/clients?key=${encodeURIComponent(key)}` : `${baseUrl}/api/clients`;
+                const resp = await fetch(url);
+                if (!resp.ok) {
+                    if (resp.status === 401) throw new Error('密码错误或无权限');
+                    throw new Error(`HTTP ${resp.status}`);
+                }
+                return await resp.json();
+            }
+
+            async function loadClients() {
+                setStatus('连接中...');
+                clientsContainer.innerHTML = '<div class="loading">加载客户端列表...</div>';
+
+                try {
+                    const clients = await fetchClients();
+                    setStatus(`在线客户端: ${clients.length}`);
+
+                    if (clients.length === 0) {
+                        clientsContainer.innerHTML = '<div class="loading">暂无在线客户端</div>';
+                        return;
+                    }
+
+                    const grid = document.createElement('div');
+                    grid.className = 'clients-grid';
+
+                    clients.forEach(id => {
+                        const card = createClientCard(id);
+                        grid.appendChild(card);
+                    });
+                    clientsContainer.innerHTML = '';
+                    clientsContainer.appendChild(grid);
+
+                    upsertServer();
+                } catch (err) {
+                    setStatus('连接失败: ' + err.message, true);
+                    clientsContainer.innerHTML = `<div class="loading" style="color: var(--error);">错误: ${err.message}</div>`;
+                }
+            }
+
+            connectBtn.addEventListener('click', loadClients);
+            serverInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadClients(); });
+            passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadClients(); });
+
+            // 页面卸载时释放所有缓存的 URL
+            window.addEventListener('beforeunload', () => {
+                for (const [clientId, cached] of screenshotCache) {
+                    URL.revokeObjectURL(cached.url);
+                }
+                screenshotCache.clear();
+            });
+        })();
+    </script>
 </body>
 </html>
