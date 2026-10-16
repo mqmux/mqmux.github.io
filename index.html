@@ -207,16 +207,9 @@
     button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #48ceff; outline-offset: 2px; }
 
     /* ---------- 设置面板 ---------- */
-    /* 字段用等宽 grid 排：列数取 10 个字段的约数（5 / 2 / 1），所以每一行都是满的、
-       上下左右齐平 —— 这就是「上面那行两端对齐」。之前用 flex-wrap 时末行会散在一边，
-       显得参差。（不要换回 auto-fit + 1fr：Chromium 在带跨列项时不会把空轨道折叠掉，
-       实测 2560 宽下那行右边会空出 582px。）
-       .fld.wide 与动作排用 grid-column:1/-1 独占整行。
-       ⚠️ 列数是对着「10 个字段」配的；将来增删字段要同步改 5→对应约数 */
+    /* 单行右对齐的紧凑工具条，空间不足时整项自然换行。 */
     .settings {
         display: none;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 8px;
         padding: 8px 12px;
         background: rgba(0, 0, 0, 0.4);
         border-bottom: 1px solid #1e2e38;
@@ -225,34 +218,42 @@
         max-height: 46vh;
         overflow-y: auto;
     }
-    .settings.open { display: grid; }
-    /* 5 列需要每格 ≥249px（最宽的「纸张宽度」约 242px）→ 面板窄于 1320px 时改 2 列 */
-    @media (max-width: 1319px) { .settings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 559px) { .settings { grid-template-columns: minmax(0, 1fr); } }
-    /* 标签靠左、控件靠右：格子被拉宽后控件不会挤在左边留一大块空 */
+    .settings.open { display: block; }
+    .settings-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px 18px;
+        min-width: 0;
+    }
     .fld {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 5px;
+        flex: 0 0 auto;
+        gap: 6px;
         min-width: 0;
-        background: #0b0f18;
-        border: 1px solid #28323e;
-        border-radius: 32px;
-        padding: 4px 10px;
+        max-width: 100%;
+        min-height: 28px;
     }
     .fld label { color: #8db3cc; white-space: nowrap; }
-    .fld input, .fld select {
+    .fld .field-unit { color: #648492; white-space: nowrap; }
+    .fld input {
         background: #020408;
         border: 1px solid #2b404e;
-        border-radius: 24px;
+        border-radius: 6px;
+        height: 28px;
         padding: 4px 7px;
         color: #d0f0ff;
         font-family: monospace;
         font-size: 0.7rem;
         outline: none;
     }
-    .fld input:focus, .fld select:focus { border-color: #48ceff; }
+    .fld input:focus { border-color: #48ceff; }
+    #apiKey, #bookId { width: 96px; }
+    #userId { width: 80px; }
+    #saveDelay { width: 58px; }
+    #historyLimit { width: 52px; }
     /* 身份由链接参数指定（?n= / ?u=）：换个底色标出来，聚焦时仍走高亮色 */
     .fld input.from-url { border-color: #2f7f9e; background: #04141c; color: #9fe6ff; }
     .fld input.from-url:focus { border-color: #48ceff; }
@@ -350,7 +351,7 @@
     .fld input[type="range"] {
         -webkit-appearance: none;
         appearance: none;
-        width: 132px;
+        width: 112px;
         height: 4px;
         padding: 0;
         border: none;
@@ -400,39 +401,18 @@
         text-align: right;
     }
 
-    .fld.wide {
-        grid-column: 1 / -1;
-        align-items: flex-start;
-        border-radius: 14px;
-        padding: 7px 10px;
-    }
-    .fld.wide label { padding-top: 3px; }
-    /* 动作排（总结/历史/访问/重置）独占一行并右对齐：
-       它们是「操作」不是「设置」，跟上面那堆字段挤在一起会显得很乱。
-       ⚠️ 必须去掉 .fld 自带的胶囊背景/边框/内边距 —— 否则会变成一根横贯整行、
-       只有右端有按钮的空胶囊。按钮自己就是圆角胶囊，直接浮在面板右边即可 */
     .fld.settings-actions {
-        grid-column: 1 / -1;
-        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .settings-actions button {
+        min-height: 28px;
+        padding: 4px 10px;
+        border-radius: 6px;
         background: transparent;
-        border: none;
-        padding: 0;
+        border-color: #263d49;
     }
-    .fld textarea {
-        flex: 1;
-        background: #020408;
-        border: 1px solid #2b404e;
-        border-radius: 10px;
-        padding: 5px 8px;
-        color: #d0f0ff;
-        font-family: inherit;
-        font-size: 0.72rem;
-        line-height: 1.55;
-        outline: none;
-        resize: vertical;
-        min-height: 48px;
-    }
-    .fld textarea:focus { border-color: #48ceff; }
+    .settings-actions button:hover { background: #152b36; border-color: #3d8ba6; }
 
     /* ---------- 主体：侧边栏 + 文档 ---------- */
     .main {
@@ -611,6 +591,7 @@
     }
     .tool-row { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin: 0; }
     .tools-toggle { background: transparent; border-color: #263d49; color: #8baab8; padding: 4px 10px; font-size: 0.66rem; }
+    .tools-toggle[hidden] { display: none; }
     .toolbar.collapsed { display: none; }
     .toolbar button {
         background: transparent;
@@ -647,6 +628,7 @@
         word-break: break-word;
         caret-color: #48ceff;
     }
+    .editor.read-only { caret-color: transparent; }
     .editor h1, .editor h2, .editor h3, .editor h4, .editor h5, .editor h6 {
         font-weight: 600;
         color: #f4fbff;
@@ -677,6 +659,7 @@
         vertical-align: -1.5px;   /* 14px 的框配 -1.5px，框中心与文字视觉中心偏差实测为 0 */
         cursor: pointer;
     }
+    .editor.read-only li[data-task] > input[type="checkbox"] { cursor: default; }
     .editor blockquote {
         margin: 0.8em 0;
         padding: 0.2em 0 0.2em 0.95em;
@@ -847,8 +830,7 @@
         padding: 20px;
     }
     .sheet.open { display: flex; }
-    /* 访问记录一行信息量大（还带 UA 原文），单独放宽这张卡；
-       总结仍是文字，窄卡更好读，所以只在 .wide 时变宽 */
+    /* 访问记录一行信息量大（还带 UA 原文），单独放宽这张卡。 */
     .sheet.wide .sheet-card { max-width: min(1180px, 94vw); }
     .sheet-card {
         background: #0d141f;
@@ -870,6 +852,7 @@
         font-size: 0.78rem;
         color: #9fe1e6;
     }
+    .sheet-actions { display: flex; align-items: center; gap: 6px; }
     .sheet-body {
         padding: 16px 18px;
         overflow-y: auto;
@@ -1006,88 +989,67 @@
             <button id="refreshBtn">刷新</button>
             <button id="settingsBtn" aria-expanded="false" aria-controls="settings">设置</button>
             <div class="tool-row">
-                <button id="toolsToggle" class="tools-toggle" aria-expanded="false" aria-controls="toolbar">编辑</button>
-                <button id="rawToggle" class="raw keep" title="切换排版编辑 / Markdown 原文">原文</button>
+                <button id="toolsToggle" class="tools-toggle" aria-expanded="false" aria-controls="toolbar" hidden>编辑</button>
+                <button id="rawToggle" class="raw keep" title="当前只读，点击切换到排版编辑">只读</button>
             </div>
             <button id="closeControlsBtn" class="chrome-aux chrome-close" type="button" aria-label="收起工具栏" title="收起">×</button>
         </div>
     </div>
 
     <div class="settings" id="settings">
-        <div class="fld">
-            <label>Key</label>
-            <input type="password" id="apiKey" placeholder="Token" style="width:60px">
-        </div>
-        <div class="fld">
-            <label>笔记本</label>
-            <input type="text" id="bookId" placeholder="conversation_id" style="width:60px">
-        </div>
-        <div class="fld">
-            <label>用户</label>
-            <input type="text" id="userId" placeholder="user_id" style="width:60px">
-        </div>
-        <div class="fld">
-            <label>模型</label>
-            <select id="modelSelect">
-                <option value="deepseek-r1">deepseek-r1</option>
-                <option value="qwen3-32b">qwen3-32b</option>
-                <option value="qwen3.6-flash">qwen3.6-flash</option>
-            </select>
-        </div>
-        <div class="fld">
-            <label>Temp</label>
-            <span class="numwrap">
-                <input type="number" id="temperature" value="0.7" step="0.1" min="0" max="2" style="width:62px">
-                <span class="numspin">
-                    <button type="button" data-step="1" tabindex="-1" aria-label="增加"></button>
-                    <button type="button" data-step="-1" tabindex="-1" aria-label="减少"></button>
+        <div class="settings-row" role="group" aria-label="笔记设置">
+            <div class="fld">
+                <label for="autoSave">自动保存</label>
+                <input type="checkbox" id="autoSave">
+            </div>
+            <div class="fld" title="停止输入后等待多久自动保存；0–600 秒，设为 0 可立即保存">
+                <label for="saveDelay">延迟</label>
+                <span class="numwrap">
+                    <input type="number" id="saveDelay" value="5" min="0" max="600" step="1">
+                    <span class="numspin">
+                        <button type="button" data-step="1" tabindex="-1" aria-label="增加保存延迟"></button>
+                        <button type="button" data-step="-1" tabindex="-1" aria-label="减少保存延迟"></button>
+                    </span>
                 </span>
-            </span>
-        </div>
-        <div class="fld">
-            <label>自动保存</label>
-            <input type="checkbox" id="autoSave">
-        </div>
-        <div class="fld" title="停止输入后等待多久自动保存；设为 0 可立即保存">
-            <label>保存延迟</label>
-            <span class="numwrap">
-                <input type="number" id="saveDelay" value="5" min="0" max="600" step="1" style="width:66px">
-                <span class="numspin">
-                    <button type="button" data-step="1" tabindex="-1" aria-label="增加"></button>
-                    <button type="button" data-step="-1" tabindex="-1" aria-label="减少"></button>
+                <span class="field-unit">秒</span>
+            </div>
+            <div class="fld" title="每次读取历史消息的数量上限；1–50 条">
+                <label for="historyLimit">历史</label>
+                <span class="numwrap">
+                    <input type="number" id="historyLimit" value="10" min="1" max="50" step="1">
+                    <span class="numspin">
+                        <button type="button" data-step="1" tabindex="-1" aria-label="增加历史条数"></button>
+                        <button type="button" data-step="-1" tabindex="-1" aria-label="减少历史条数"></button>
+                    </span>
                 </span>
-            </span>
-            <label>秒（0–600）</label>
-        </div>
-        <div class="fld" title="每次读取历史消息的数量上限；调大后点刷新可加载更多，最多 50 条">
-            <label>历史条数</label>
-            <span class="numwrap">
-                <input type="number" id="historyLimit" value="10" min="1" max="50" step="1" style="width:58px">
-                <span class="numspin">
-                    <button type="button" data-step="1" tabindex="-1" aria-label="增加"></button>
-                    <button type="button" data-step="-1" tabindex="-1" aria-label="减少"></button>
-                </span>
-            </span>
-            <label>条（1–50）</label>
-        </div>
-        <div class="fld">
-            <label>纸张宽度</label>
-            <input type="range" id="docWidth" min="420" max="1400" step="20" value="840">
-            <span class="rng-val" id="docWidthVal">760px</span>
-        </div>
-        <div class="fld">
-            <label title="把每次打开页面的时间和设备记到独立会话里，方便看谁什么时候访问过">记录访问</label>
-            <input type="checkbox" id="logVisit">
-        </div>
-        <div class="fld settings-actions">
-            <button id="sumBtn">总结</button>
-            <button id="historyBtn">历史</button>
-            <button id="accessBtn">访问</button>
-            <button id="resetBtn" title="清空本页在本地保存的全部配置，恢复默认">重置</button>
-        </div>
-        <div class="fld wide">
-            <label title="只影响总结结果，不会改动原笔记">总结提示词</label>
-            <textarea id="sumPrompt" rows="2" spellcheck="false"></textarea>
+                <span class="field-unit">条</span>
+            </div>
+            <div class="fld">
+                <label for="docWidth">纸张宽度</label>
+                <input type="range" id="docWidth" min="420" max="1400" step="20" value="840">
+                <span class="rng-val" id="docWidthVal">840px</span>
+            </div>
+            <div class="fld">
+                <label for="apiKey">Key</label>
+                <input type="password" id="apiKey" placeholder="Token">
+            </div>
+            <div class="fld">
+                <label for="bookId">笔记本</label>
+                <input type="text" id="bookId" placeholder="conversation_id">
+            </div>
+            <div class="fld">
+                <label for="userId">用户</label>
+                <input type="text" id="userId" placeholder="user_id">
+            </div>
+            <div class="fld">
+                <label for="logVisit" title="把每次打开页面的时间和设备记到独立会话里，方便看谁什么时候访问过">记录访问</label>
+                <input type="checkbox" id="logVisit">
+            </div>
+            <div class="fld settings-actions">
+                <button id="historyBtn">历史</button>
+                <button id="accessBtn">访问</button>
+                <button id="resetBtn" title="清空本页在本地保存的配置，恢复默认">重置</button>
+            </div>
         </div>
     </div>
 
@@ -1135,8 +1097,8 @@
         <div class="toc-backdrop" id="tocBackdrop"></div>
         <div class="doc-wrap" id="docWrap">
             <div class="sheet-doc">
-                <div class="editor is-empty" id="editor" contenteditable="true" spellcheck="false"></div>
-                <textarea class="rawbox" id="rawBox" spellcheck="false"></textarea>
+                <div class="editor is-empty read-only" id="editor" contenteditable="false" spellcheck="false"></div>
+                <textarea class="rawbox" id="rawBox" spellcheck="false" readonly></textarea>
             </div>
         </div>
 
@@ -1156,8 +1118,11 @@
 <div class="sheet" id="sheet">
     <div class="sheet-card">
         <div class="sheet-head">
-            <span id="sheetTitle">笔记总结</span>
-            <button id="sheetClose">关闭</button>
+            <span id="sheetTitle">访问记录</span>
+            <div class="sheet-actions">
+                <button id="accessRefreshBtn" type="button">刷新</button>
+                <button id="sheetClose">关闭</button>
+            </div>
         </div>
         <div class="sheet-body" id="sheetBody"></div>
     </div>
@@ -1173,7 +1138,6 @@
     var DEFAULT_KEY = 'mpg-NFH2/LVRbJ1/oRoyWQyxq+hhbwG0ncnBphNvuue/';
     var MAX_MESSAGES = 50;          // get/message 的接口最大值
     var DEFAULT_HISTORY_LIMIT = 10;
-    var SUM_SUFFIX = '__sum';       // 总结用的影子会话后缀（固定值，不是随机）
     // 访问记录：写死在独立会话里，和笔记完全隔离（不占笔记本的 50 条额度）。
     // 因为 MemOS 没有「修改消息」接口，"追加"只能做成「读回最新一条 → 末尾加一行 → 整条重新写成一条新消息」。
     // 🔑 2026-10-14 改为「单条滚动」：不再分片，永远只维护一条消息，超过上限就从**头部丢掉最老的**。
@@ -1215,14 +1179,6 @@
     var DOC_MAX = 1400;
     var DOC_DEF = 840;
 
-    // 旧版默认提示词（针对多条笔记归纳）；仅用于把用户浏览器里存的旧默认值升级掉
-    var DEFAULT_SUM_PROMPT_V1 =
-        '你是笔记整理助手。请对我提供的笔记按主题归纳成简洁的要点，最后补一句整体总结。' +
-        '用 Markdown 输出（可用标题和列表），不要编造不存在的内容。';
-    var DEFAULT_SUM_PROMPT =
-        '你是笔记整理助手。请对我提供的这一条笔记做整理：提炼要点、理顺结构、必要时润色文字，' +
-        '最后给一句简短总结。用 Markdown 输出，不要编造不存在的内容。';
-
     var $ = function (id) { return document.getElementById(id); };
     var editor = $('editor');
     var rawBox = $('rawBox');
@@ -1230,7 +1186,9 @@
     var notes = [];         // 全部 user 消息（含占位）
     var live = [];          // 过滤后的有效笔记
     var busy = false;
-    var rawMode = false;    // false = Markdown 排版编辑；true = 原文编辑
+    var editorMode = 'read'; // 每次打开默认只读；read → edit → raw → read
+    var rawMode = false;     // 由 editorMode 派生，供 Markdown 原文相关逻辑使用
+    var editorModeRevision = 0;
     var lastSavedMd = null; // 最近一次成功写入 MemOS 的 markdown（null = 尚未与远端对齐）
     var lastSavedIsBlankState = false;
     var historyNeedsSave = false; // 用户从历史选中的版本，按保存时重新追加为最新版本
@@ -2007,11 +1965,6 @@
         return v;
     }
 
-    function sumPrompt() {
-        var v = $('sumPrompt').value.trim();
-        return v || DEFAULT_SUM_PROMPT;
-    }
-
     // 侧边栏宽度：写成 :root 上的 CSS 变量（不用元素内联样式，否则会盖掉窄屏媒体查询）
     function applySideWidth(px) {
         var w = Math.round(px);
@@ -2040,13 +1993,9 @@
             // 链接参数指定的身份不落盘：发出去的链接不该改写本机的默认值
             if (!urlIdent('n')) localStorage.setItem('memos_book', $('bookId').value);
             if (!urlIdent('u')) localStorage.setItem('memos_user', $('userId').value);
-            localStorage.setItem('memos_model', $('modelSelect').value);
-            localStorage.setItem('memos_temp', $('temperature').value);
             localStorage.setItem('memos_autosave', autoSaveOn() ? '1' : '0');
             localStorage.setItem('memos_delay', $('saveDelay').value);
             localStorage.setItem('memos_history_limit', String(historyLimit()));
-            localStorage.setItem('memos_sumprompt', $('sumPrompt').value);
-            localStorage.setItem('memos_rawmode', rawMode ? '1' : '0');
             localStorage.setItem('memos_logvisit', logVisitOn() ? '1' : '0');
         } catch (e) {}
     }
@@ -2057,13 +2006,6 @@
         $('bookId').value = urlIdent('n') || localStorage.getItem('memos_book') || 'note';
         $('userId').value = urlIdent('u') || localStorage.getItem('memos_user') || 'user';
         markUrlIdents();
-        var m = localStorage.getItem('memos_model');
-        var opts = Array.prototype.slice.call($('modelSelect').options).map(function (o) { return o.value; });
-        // 存的模型可能已经不在列表里（比如以前的 qwen2.5-72b-instruct），否则会选成空值
-        $('modelSelect').value = (m && opts.indexOf(m) >= 0) ? m : 'qwen3-32b';
-        var t = localStorage.getItem('memos_temp');
-        if (t) $('temperature').value = t;
-
         // 自动保存：默认关闭；保留用户之前明确保存的开关选择
         $('autoSave').checked = localStorage.getItem('memos_autosave') === '1';
         var d = localStorage.getItem('memos_delay');
@@ -2072,15 +2014,6 @@
         var historyCount = parseInt(localStorage.getItem('memos_history_limit'), 10);
         $('historyLimit').value = String(isNaN(historyCount) ? DEFAULT_HISTORY_LIMIT :
             Math.max(1, Math.min(MAX_MESSAGES, historyCount)));
-
-        // 总结提示词：本地保存，默认值直接显示在输入框里
-        var sp = localStorage.getItem('memos_sumprompt');
-        // 旧版默认提示词（按多条归纳）自动升级为新默认（按单条整理）；用户自定义过的原样保留
-        if (sp === DEFAULT_SUM_PROMPT_V1) {
-            sp = DEFAULT_SUM_PROMPT;
-            try { localStorage.setItem('memos_sumprompt', sp); } catch (e) {}
-        }
-        $('sumPrompt').value = (sp === null) ? DEFAULT_SUM_PROMPT : sp;
 
         // 访问记录：默认开着（只有显式存过 '0' 才关）
         $('logVisit').checked = localStorage.getItem('memos_logvisit') !== '0';
@@ -2094,27 +2027,24 @@
         applyDocWidth(!isNaN(dw) && dw > 0 ? dw : DOC_DEF);
     }
 
-    // 重置：清掉本页写在 localStorage 里的全部配置（API Key、笔记本、用户、模型、温度、
-    // 纸张宽度、侧栏宽度、自动保存与延迟、历史条数、总结提示词、原文模式、记录访问开关）。
-    // 🔑 用「memos_ 前缀全扫」而不是硬编码清单 —— 将来新增设置项也会被一起清掉，不会漏。
+    // 只清除此版本实际使用的配置；完整版 note 的模型、温度和总结提示词保持原值。
     // 笔记内容存在服务器上，不受影响；清完直接重新载入，回到刚打开时的默认状态。
     function resetSettings() {
-        if (!window.confirm('重置会清空本页在本地保存的全部配置：\n\n' +
+        if (!window.confirm('重置会清空本页使用的本地设置：\n\n' +
             '· API Key（回落到内置默认）\n' +
             '· 笔记本 / 用户\n' +
-            '· 模型、温度、历史条数\n' +
+            '· 历史条数、目录展开状态\n' +
             '· 纸张宽度、侧栏宽度\n' +
             '· 自动保存、保存延迟\n' +
-            '· 总结提示词、原文模式、记录访问开关\n\n' +
+            '· 记录访问开关\n\n' +
             '笔记内容存在服务器上，不受影响。\n' +
             '（若当前链接带 ?n= / ?u=，重置后身份仍由链接决定，属正常。）\n\n确定重置吗？')) return;
-        var keys = [];
+        var keys = [
+            'memos_key', 'memos_book', 'memos_user', 'memos_autosave', 'memos_delay',
+            'memos_history_limit', 'memos_docw', 'memos_sidew', 'memos_logvisit',
+            'memos_toc_mobile', 'memos_toc_desktop'
+        ];
         try {
-            // 先收集再删：边遍历边删会让索引错位，漏掉一半
-            for (var i = 0; i < localStorage.length; i++) {
-                var k = localStorage.key(i);
-                if (k && k.indexOf('memos_') === 0) keys.push(k);
-            }
             for (var j = 0; j < keys.length; j++) localStorage.removeItem(keys[j]);
         } catch (e) {}
         location.reload();
@@ -2208,8 +2138,8 @@
     function setBusy(b) {
         busy = b;
         $('refreshBtn').disabled = b;
-        $('sumBtn').disabled = b;
         $('accessBtn').disabled = b;
+        $('accessRefreshBtn').disabled = b;
         $('saveBtn').disabled = b;
     }
 
@@ -2675,7 +2605,7 @@
         }
     }
 
-    // 关面板统一入口：顺手摘掉 .wide，否则下次打开总结卡也会是宽的
+    // 关面板统一入口，同时清理展开状态。
     function closeSheet() { $('sheet').classList.remove('open', 'wide'); }
 
     async function showAccess() {
@@ -2925,6 +2855,7 @@
         historyNeedsSave = false;
         lastSavedAt = savedAt ? Number(savedAt) : 0;
         ensureTail();
+        syncEditorModeUI();
         syncEmpty();
         syncTableBar();
         renderOutline();
@@ -2935,46 +2866,85 @@
         return rawMode ? rawBox.value : html2md(editor);
     }
 
-    function setRawMode(on) {
-        if (on === rawMode) return;
-        lastEditorRange = null;
-        hideImageBar();
-        // 切换前先归一化，两个视图保持一致；否则切回来会因为「块间补空行」误报未保存
-        var md = normMd(currentMd());
-        rawMode = on;
-        rawBox.value = md;
-        editor.innerHTML = md ? md2html(md) : '';
-        if (!on) ensureTail();
-        editor.style.display = on ? 'none' : '';
-        rawBox.classList.toggle('show', on);
-        $('toolbar').classList.toggle('raw-mode', on);
-        $('toolsToggle').hidden = on;
-        if (on) $('toolbar').classList.add('collapsed');
+    function isReadOnly() { return editorMode === 'read'; }
+
+    function syncEditorModeUI() {
+        var editing = editorMode === 'edit';
+        editor.contentEditable = editing ? 'true' : 'false';
+        editor.classList.toggle('read-only', isReadOnly());
+        editor.style.display = rawMode ? 'none' : '';
+        rawBox.readOnly = !rawMode;
+        rawBox.classList.toggle('show', rawMode);
+        Array.prototype.forEach.call(editor.querySelectorAll('li[data-task] input[type="checkbox"]'), function (input) {
+            input.disabled = isReadOnly();
+        });
+        $('toolbar').classList.toggle('raw-mode', rawMode);
+        $('toolsToggle').hidden = !editing;
+        if (!editing) $('toolbar').classList.add('collapsed');
         var toolsOpen = !$('toolbar').classList.contains('collapsed');
         $('toolsToggle').textContent = toolsOpen ? '收起' : '编辑';
         $('toolsToggle').setAttribute('aria-expanded', toolsOpen ? 'true' : 'false');
-        $('rawToggle').textContent = on ? '排版' : '原文';
-        $('rawToggle').title = on ? '切回排版编辑' : '切换到 Markdown 原文编辑';
+        var label = isReadOnly() ? '只读' : (rawMode ? '原文' : '排版');
+        var nextLabel = isReadOnly() ? '排版编辑' : (rawMode ? '只读' : '原文编辑');
+        $('rawToggle').textContent = label;
+        $('rawToggle').dataset.mode = editorMode;
+        $('rawToggle').title = '当前' + label + '，点击切换到' + nextLabel;
+        $('rawToggle').setAttribute('aria-label', $('rawToggle').title);
+        if (!editing) {
+            hideImageBar();
+            closeTablePicker();
+        }
+        syncTableBar();
+    }
+
+    function setEditorMode(next) {
+        if (['read', 'edit', 'raw'].indexOf(next) < 0) return;
+        var changed = next !== editorMode;
+        var sourceChanged = (next === 'raw') !== rawMode;
+        var scrollTop = $('docWrap').scrollTop;
+        // 只读与排版共用正文 DOM，切换时保留选区、内容及撤销记录。
+        // 只有跨越原文边界才转换 Markdown，保存基线和待保存状态保持原值。
+        var md = sourceChanged ? normMd(currentMd()) : null;
+        if (changed) {
+            editorModeRevision++;
+            editorHistoryGroup = '';
+            editorHistoryAt = 0;
+            editorHistoryMerge = false;
+            editorCompositionGroup = '';
+        }
+        editorMode = next;
+        rawMode = next === 'raw';
+        if (sourceChanged) {
+            lastEditorRange = null;
+            rawBox.value = md;
+            editor.innerHTML = md ? md2html(md) : '';
+            if (!rawMode) ensureTail();
+        }
+        syncEditorModeUI();
         syncEmpty();
         showIdleStatus();
-        saveSettings();
-        closeTablePicker();
-        syncTableBar();
         renderOutline();
-        resetEditorHistory();
+        if (sourceChanged) resetEditorHistory();
+        $('docWrap').scrollTop = scrollTop;
     }
 
     /* ================= 保存 ================= */
 
+    function hasAutomaticSaveWork() {
+        // 只读浏览历史本身不触发还原；先前实际编辑的草稿仍可完成自动保存。
+        return !!saveTimer || (lastSavedMd !== null && currentMd() !== lastSavedMd) ||
+            (!isReadOnly() && historyNeedsSave);
+    }
+
     function scheduleSave(group) {
         if (group !== 'history') recordEditorHistory(group);
         queueOutlineUpdate();
-        if (autoSaveOn()) {
+        if (autoSaveOn() && (!isReadOnly() || hasAutomaticSaveWork())) {
             setStatus('编辑中…', 'saving');
             clearTimeout(saveTimer);
             saveTimer = setTimeout(function () { doSave(false); }, saveDelaySec() * 1000);
         } else {
-            // 关掉自动保存后，只有 Ctrl+S（或点保存）才会写
+            // 自动保存关闭，或只读状态没有待保存编辑时，不安排写入。
             clearTimeout(saveTimer);
             saveTimer = null;
             showIdleStatus();
@@ -3233,58 +3203,6 @@
         }
     }
 
-    // 只把「最新一条」笔记原文拼成 query（只用 /chat，不传任何记忆参数）
-    function buildSummaryQuery() {
-        var latest = latestState();
-        if (!latest || kindOf(latest.text) !== 'note') return '';
-        return '以下是我的笔记（Markdown 格式）：\n\n[' + fmtFull(latest.t) + ']\n' + latest.text;
-    }
-
-    async function summarize() {
-        if (busy) return;
-        var b = book();
-        if (!b.user_id || !b.conversation_id) { toast('请先在设置里填写笔记本 ID 和用户 ID', true); return; }
-        if (!currentMd().trim()) { toast('当前内容为空，无法总结'); return; }
-
-        setBusy(true);
-        $('sheetTitle').textContent = '笔记总结';
-        $('sheetBody').textContent = '正在读取笔记…';
-        $('sheet').classList.add('open');
-        try {
-            await doSave(false);
-            await fetchNotes();
-            renderSide();
-            var latest = latestState();
-            if (!latest || kindOf(latest.text) !== 'note') { $('sheetBody').textContent = '还没有可总结的笔记。'; return; }
-
-            var temp = parseFloat($('temperature').value);
-            if (isNaN(temp)) temp = 0.7;
-            $('sheetBody').textContent = '正在总结最新一条笔记…';
-
-            var data = await callApi('/chat', {
-                user_id: b.user_id,
-                // /chat 会把「提问 + 回答」写回会话消息列表，故走影子会话，避免污染笔记本
-                conversation_id: b.conversation_id + SUM_SUFFIX,
-                query: buildSummaryQuery(),
-                model_name: $('modelSelect').value,
-                temperature: temp,
-                stream: false,
-                max_tokens: 4096,
-                add_message_on_answer: false,
-                system_prompt: sumPrompt()
-            });
-            var out = data && typeof data.response === 'string' ? data.response.trim() : '';
-            // 模型常把整段输出套在 ```markdown 围栏里，剥掉外层围栏再渲染，否则会变成一整个代码块
-            var fence = out.match(/^```[a-zA-Z]*[ \t]*\r?\n([\s\S]*?)\r?\n?```$/);
-            if (fence) out = fence[1].trim();
-            $('sheetBody').innerHTML = out ? md2html(out) : '（没有返回内容）';
-        } catch (e) {
-            $('sheetBody').textContent = '总结失败：' + e.message;
-        } finally {
-            setBusy(false);
-        }
-    }
-
     /* ================= 编辑器交互 ================= */
 
     // 从光标节点往上找到最近的块级元素（p/div/pre/blockquote/h1-h6）
@@ -3459,6 +3377,7 @@
     }
 
     function wrapSelection(tag) {
+        if (isReadOnly()) return;
         var sel = window.getSelection();
         if (!sel.rangeCount || sel.isCollapsed) return;
         rememberEditorHistoryBoundary();
@@ -3473,6 +3392,7 @@
     }
 
     function insertMarkdownSnippet(md) {
+        if (isReadOnly()) return;
         if (rawMode) {
             var start = rawBox.selectionStart;
             var end = rawBox.selectionEnd;
@@ -3490,6 +3410,7 @@
     }
 
     function insertLink() {
+        if (isReadOnly()) return;
         var selected = rawMode ? rawBox.value.slice(rawBox.selectionStart, rawBox.selectionEnd) : window.getSelection().toString();
         var url = window.prompt('输入链接地址', 'https://');
         if (url === null) return;
@@ -3509,6 +3430,7 @@
     }
 
     function insertImage() {
+        if (isReadOnly()) return;
         var src = window.prompt('输入图片地址', 'https://');
         if (src === null) return;
         var safe = safeHref(src);
@@ -3555,6 +3477,7 @@
     }
 
     function setNoteImageWidth(width) {
+        if (isReadOnly()) { hideImageBar(); return; }
         var image = selectedNoteImage;
         if (!image || !editor.contains(image) || rawMode) { hideImageBar(); return; }
         rememberEditorHistoryBoundary();
@@ -3583,6 +3506,7 @@
             '<button type="button" data-image-action="close" aria-label="关闭图片设置">×</button>';
         imageBar.addEventListener('mousedown', function (e) { e.preventDefault(); });
         imageBar.addEventListener('click', function (e) {
+            if (isReadOnly()) { hideImageBar(); return; }
             var button = e.target.closest('button');
             if (!button) return;
             if (button.dataset.imageAction === 'close') { hideImageBar(); editor.focus(); return; }
@@ -3595,7 +3519,7 @@
     }
 
     function syncImageBar() {
-        if (rawMode || !selectedNoteImage || !editor.contains(selectedNoteImage)) { hideImageBar(); return; }
+        if (isReadOnly() || rawMode || !selectedNoteImage || !editor.contains(selectedNoteImage)) { hideImageBar(); return; }
         var bar = ensureImageBar(), wrap = $('docWrap').getBoundingClientRect(), image = selectedNoteImage.getBoundingClientRect();
         if (image.bottom < wrap.top || image.top > wrap.bottom || image.right < wrap.left || image.left > wrap.right) { bar.classList.remove('open'); return; }
         bar.querySelector('[data-image-action="width"]').textContent = '宽度：' + (imageWidth(selectedNoteImage.getAttribute('width')) || '自动') + (imageWidth(selectedNoteImage.getAttribute('width')) ? 'px' : '');
@@ -3989,6 +3913,7 @@
     ];
 
     function tableAction(act) {
+        if (isReadOnly()) return;
         var cell = activeCell();
         if (!cell) return;
         rememberEditorHistoryBoundary();
@@ -4053,7 +3978,7 @@
     // 光标进了表格就把操作条贴到表格右上方；离开就收起来
     function syncTableBar() {
         var bar = ensureTableBar();
-        var table = (rawMode || !editor.contains(document.activeElement)) ? null : activeTable();
+        var table = (isReadOnly() || rawMode || !editor.contains(document.activeElement)) ? null : activeTable();
         if (!table) { bar.classList.remove('open'); return; }
         bar.classList.add('open');
         var bounds = $('docWrap').getBoundingClientRect();
@@ -4132,6 +4057,7 @@
     }
 
     function openTablePicker(anchor) {
+        if (isReadOnly()) { closeTablePicker(); return; }
         var p = ensureTablePicker();
         p._paint();
         p.classList.add('open');
@@ -4155,6 +4081,7 @@
     }
 
     function insertTable(rows, cols) {
+        if (isReadOnly()) return;
         if (rawMode) { insertMarkdownSnippet(tableMd(rows, cols)); return; }
         restoreEditorSelection();
         rememberEditorHistoryBoundary();
@@ -4222,6 +4149,7 @@
             backwards = !source.collapsed && sel.anchorNode === source.endContainer && sel.anchorOffset === source.endOffset;
         } else if (lastEditorRange && editor.contains(lastEditorRange.startContainer) && editor.contains(lastEditorRange.endContainer)) source = lastEditorRange;
         var range = source ? cloneRangeInto(source, copy) : null;
+        Array.prototype.forEach.call(copy.querySelectorAll('input[type="checkbox"]'), function (input) { input.removeAttribute('disabled'); });
         Array.prototype.forEach.call(copy.querySelectorAll('[data-md-caret]'), function (marker) { marker.remove(); });
         Array.prototype.forEach.call(copy.querySelectorAll('[data-note-image-edit]'), function (image) { image.removeAttribute('data-note-image-edit'); });
         Array.prototype.forEach.call(copy.querySelectorAll('[data-fresh]'), function (table) { table.removeAttribute('data-fresh'); });
@@ -4244,6 +4172,7 @@
             lastEditorRange = null;
             editor.innerHTML = snapshot.html;
             ensureTail();
+            syncEditorModeUI();
             function point(saved) {
                 if (!saved) return null;
                 var node = editor;
@@ -4286,7 +4215,7 @@
     }
 
     function rememberEditorHistoryBoundary(group) {
-        if (historyRestoring || rawMode || layoutEditing) return;
+        if (isReadOnly() || historyRestoring || rawMode || layoutEditing) return;
         if (editorHistoryIndex < 0) resetEditorHistory();
         var snapshot = captureEditorSnapshot(), current = editorHistory[editorHistoryIndex];
         if (current.html !== snapshot.html) {
@@ -4302,7 +4231,7 @@
     }
 
     function recordEditorHistory(group) {
-        if (historyRestoring || rawMode || layoutEditing) return;
+        if (isReadOnly() || historyRestoring || rawMode || layoutEditing) return;
         var snapshot = captureEditorSnapshot();
         if (editorHistoryIndex < 0) { resetEditorHistory(); return; }
         var current = editorHistory[editorHistoryIndex];
@@ -4325,7 +4254,7 @@
     }
 
     function undoEditorHistory(redo) {
-        if (rawMode || historyRestoring) return false;
+        if (isReadOnly() || rawMode || historyRestoring) return false;
         var target = editorHistoryIndex + (redo ? 1 : -1);
         if (target < 0 || target >= editorHistory.length) return false;
         clearTimeout(saveTimer); saveTimer = null;
@@ -4449,7 +4378,7 @@
     }
 
     function applyMdLayout(kind) {
-        if (!mdLayoutType(kind) || rawMode) return;
+        if (isReadOnly() || !mdLayoutType(kind) || rawMode) return;
         restoreEditorSelection();
         var sel = window.getSelection();
         if (!sel || !sel.rangeCount) return;
@@ -4620,6 +4549,7 @@
     }
 
     function cmdOf(cmd, btn) {
+        if (isReadOnly()) return;
         if (blockCmdInCell(cmd)) return;
         if (cmd === 'undo') undoEditorHistory(false);
         else if (cmd === 'redo') undoEditorHistory(true);
@@ -4646,6 +4576,7 @@
     }
 
     function startNewNote() {
+        if (isReadOnly()) return;
         if (currentMd().trim() && !window.confirm('清空编辑器，开始写一条新笔记？（未保存的改动会丢失）')) return;
         lastEditorRange = null;
         hideImageBar();
@@ -4731,6 +4662,7 @@
         var tb = $('toolbar');
         tb.addEventListener('mousedown', function (e) { if (e.target.closest('button')) e.preventDefault(); });
         tb.addEventListener('click', function (e) {
+            if (isReadOnly()) return;
             var btn = e.target.closest('button');
             if (!btn) return;
             var cmd = btn.dataset.cmd;
@@ -4748,14 +4680,23 @@
         var markdownComposing = false;
         var markdownTransforming = false;
         var pendingTaskItem = null;
+        var inputModeRevision = editorModeRevision;
+        function refreshEditorInputMode() {
+            if (inputModeRevision === editorModeRevision) return false;
+            inputModeRevision = editorModeRevision;
+            markdownComposing = false;
+            pendingTaskItem = null;
+            editorCompositionGroup = '';
+            return true;
+        }
         function convertShortcut(trigger, inserted) {
-            if (markdownComposing || markdownTransforming) return false;
+            if (isReadOnly() || markdownComposing || markdownTransforming) return false;
             markdownTransforming = true;
             try { return tryMarkdownShortcut(trigger, inserted); }
             finally { markdownTransforming = false; }
         }
         function handleHeadingBoundary(e, action) {
-            if (markdownComposing || markdownTransforming) return false;
+            if (isReadOnly() || markdownComposing || markdownTransforming) return false;
             markdownTransforming = true;
             try {
                 if (!tryHeadingBoundary(action)) return false;
@@ -4765,28 +4706,34 @@
             } finally { markdownTransforming = false; }
         }
         function handleLayoutBoundary(e, action, backwards) {
-            if (markdownComposing || markdownTransforming || layoutEditing || !handleLayoutKey(action, backwards)) return false;
+            if (isReadOnly() || markdownComposing || markdownTransforming || layoutEditing || !handleLayoutKey(action, backwards)) return false;
             e.preventDefault();
             ensureTail(); syncEmpty(); syncLayoutButtons(); scheduleSave();
             return true;
         }
         editor.addEventListener('compositionstart', function () {
+            refreshEditorInputMode();
+            if (isReadOnly()) { markdownComposing = false; editorCompositionGroup = ''; return; }
             markdownComposing = true;
             editorCompositionGroup = 'composition:' + (++editorCompositionSequence);
             rememberEditorHistoryBoundary(editorCompositionGroup);
         });
         editor.addEventListener('compositionend', function () {
             markdownComposing = false;
+            if (refreshEditorInputMode() || isReadOnly()) { editorCompositionGroup = ''; return; }
             var compositionGroup = editorCompositionGroup;
             var compositionRevision = editorLoadRevision;
+            var compositionModeRevision = editorModeRevision;
             setTimeout(function () {
-                if (rawMode || editorLoadRevision !== compositionRevision) return;
+                if (isReadOnly() || rawMode || editorLoadRevision !== compositionRevision || editorModeRevision !== compositionModeRevision) return;
                 if (convertShortcut('space', true)) { ensureTail(); syncEmpty(); }
                 scheduleSave(compositionGroup);
                 if (editorCompositionGroup === compositionGroup) editorCompositionGroup = '';
             }, 0);
         });
         editor.addEventListener('beforeinput', function (e) {
+            refreshEditorInputMode();
+            if (isReadOnly()) { if (e.cancelable) e.preventDefault(); pendingTaskItem = null; return; }
             if (historyRestoring) return;
             if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
                 if (e.cancelable) { e.preventDefault(); undoEditorHistory(e.inputType === 'historyRedo'); }
@@ -4816,7 +4763,14 @@
             }
         });
         editor.addEventListener('input', function (e) {
+            refreshEditorInputMode();
             if (historyRestoring || markdownTransforming || layoutEditing) return;
+            if (isReadOnly()) {
+                pendingTaskItem = null;
+                // 任务框由 change 恢复；其他意外输入回到最后一份合法正文。
+                if (!(e.target.matches && e.target.matches('input[type="checkbox"]')) && editorHistory[editorHistoryIndex]) restoreEditorSnapshot(editorHistory[editorHistoryIndex]);
+                return;
+            }
             if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
                 if (!undoEditorHistory(e.inputType === 'historyRedo') && editorHistory[editorHistoryIndex]) restoreEditorSnapshot(editorHistory[editorHistoryIndex]);
                 return;
@@ -4840,6 +4794,8 @@
         });
 
         editor.addEventListener('keydown', function (e) {
+            refreshEditorInputMode();
+            if (isReadOnly()) return;
             if (e.isComposing || markdownComposing || e.keyCode === 229) return;
             if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'Backspace' || e.key === 'Delete') {
                 rememberEditorHistoryBoundary(e.key === 'Backspace' ? 'delete-backward' : e.key === 'Delete' ? 'delete-forward' : '');
@@ -4902,7 +4858,9 @@
                 var selection = window.getSelection();
                 var currentItem = selection.rangeCount ? listItemOf(selection.getRangeAt(0).startContainer) : null;
                 if (currentItem && currentItem.hasAttribute('data-task') && currentItem.textContent.trim()) {
+                    var taskModeRevision = editorModeRevision;
                     setTimeout(function () {
+                        if (isReadOnly() || editorModeRevision !== taskModeRevision) return;
                         var nextSelection = window.getSelection();
                         var nextItem = nextSelection.rangeCount ? listItemOf(nextSelection.getRangeAt(0).startContainer) : null;
                         if (nextItem && nextItem !== currentItem && nextItem.parentNode === currentItem.parentNode) {
@@ -4918,6 +4876,7 @@
         });
 
         editor.addEventListener('paste', function (e) {
+            if (isReadOnly()) { e.preventDefault(); return; }
             var txt = (e.clipboardData || window.clipboardData).getData('text/plain');
             if (!txt) return;
             e.preventDefault();
@@ -4939,16 +4898,32 @@
             scheduleSave();
         });
 
+        editor.addEventListener('drop', function (e) {
+            if (isReadOnly()) { e.preventDefault(); return; }
+            rememberEditorHistoryBoundary();
+        });
+        editor.addEventListener('cut', function (e) {
+            if (isReadOnly()) { e.preventDefault(); return; }
+            rememberEditorHistoryBoundary();
+        });
+
         editor.addEventListener('change', function (e) {
             var input = e.target.closest && e.target.closest('li[data-task] input[type="checkbox"]');
             if (!input) return;
             var li = input.closest('li[data-task]');
+            if (isReadOnly()) {
+                input.checked = li.getAttribute('data-task') === 'done';
+                if (input.checked) input.setAttribute('checked', ''); else input.removeAttribute('checked');
+                input.disabled = true;
+                return;
+            }
             markTaskItem(li, input.checked);   // 连带同步 data-mark（保留 [X]/[✔]/[✓] 原记号）
             syncEmpty();
             scheduleSave();
         });
 
         editor.addEventListener('click', function (e) {
+            if (isReadOnly()) { hideImageBar(); return; }
             var image = e.target.closest && e.target.closest('img');
             if (!image || !editor.contains(image)) { hideImageBar(); return; }
             e.preventDefault();
@@ -4987,8 +4962,12 @@
         });
 
         // 原文编辑框
-        rawBox.addEventListener('input', function () { scheduleSave(); });
+        rawBox.addEventListener('input', function () {
+            if (isReadOnly()) { rawBox.value = normMd(html2md(editor)); return; }
+            scheduleSave();
+        });
         rawBox.addEventListener('keydown', function (e) {
+            if (isReadOnly()) return;
             if (e.key !== 'Tab') return;
             e.preventDefault();
             rawBox.setRangeText('  ', rawBox.selectionStart, rawBox.selectionEnd, 'end');
@@ -4996,14 +4975,14 @@
         });
         // 离开页面时兜底保存（仅在自动保存开启时）
         window.addEventListener('pagehide', function () {
-            if (autoSaveOn() && (saveTimer || historyNeedsSave || currentMd() !== lastSavedMd)) doSave(true);
+            if (autoSaveOn() && hasAutomaticSaveWork()) doSave(true);
         });
         document.addEventListener('visibilitychange', function () {
-            if (document.visibilityState === 'hidden' && autoSaveOn() && (saveTimer || historyNeedsSave || currentMd() !== lastSavedMd)) doSave(true);
+            if (document.visibilityState === 'hidden' && autoSaveOn() && hasAutomaticSaveWork()) doSave(true);
         });
         // 关闭自动保存后，有未保存内容时提醒
         window.addEventListener('beforeunload', function (e) {
-            if (!autoSaveOn() && (historyNeedsSave || currentMd() !== lastSavedMd)) {
+            if (!autoSaveOn() && ((lastSavedMd !== null && currentMd() !== lastSavedMd) || (!isReadOnly() && historyNeedsSave))) {
                 e.preventDefault();
                 e.returnValue = '';
             }
@@ -5011,18 +4990,21 @@
 
         $('saveBtn').addEventListener('click', function () { doSave(false); });
         $('refreshBtn').addEventListener('click', function () { refresh(false); });
-        $('sumBtn').addEventListener('click', summarize);
         $('settingsBtn').addEventListener('click', function () {
             var open = $('settings').classList.toggle('open');
             this.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
         $('toolsToggle').addEventListener('click', function () {
+            if (isReadOnly()) return;
             var open = $('toolbar').classList.toggle('collapsed') === false;
             this.textContent = open ? '收起' : '编辑';
             this.setAttribute('aria-expanded', open ? 'true' : 'false');
             syncImageBar();
         });
-        $('rawToggle').addEventListener('click', function (e) { e.preventDefault(); setRawMode(!rawMode); });
+        $('rawToggle').addEventListener('click', function (e) {
+            e.preventDefault();
+            setEditorMode({ read: 'edit', edit: 'raw', raw: 'read' }[editorMode]);
+        });
         $('sheetClose').addEventListener('click', closeSheet);
         $('sheet').addEventListener('click', function (e) {
             if (e.target === $('sheet')) closeSheet();
@@ -5030,7 +5012,12 @@
         document.addEventListener('keydown', function (e) {
             var key = e.key.toLowerCase(), target = e.target;
             var otherField = target && target.closest && target.closest('input,textarea,select,[contenteditable="true"]');
-            if (!rawMode && !e.isComposing && !markdownComposing && e.keyCode !== 229 && (e.ctrlKey || e.metaKey) && !e.altKey &&
+            if (isReadOnly() && (e.ctrlKey || e.metaKey) && !e.altKey &&
+                /^(z|y|k|n)$/.test(key) && (!otherField || otherField === editor)) {
+                e.preventDefault();
+                return;
+            }
+            if (!isReadOnly() && !rawMode && !e.isComposing && !markdownComposing && e.keyCode !== 229 && (e.ctrlKey || e.metaKey) && !e.altKey &&
                 (key === 'z' || key === 'y') && (!otherField || otherField === editor)) {
                 e.preventDefault();
                 rememberEditorHistoryBoundary();
@@ -5059,6 +5046,7 @@
 
         $('historyBtn').addEventListener('click', function () { $('side').classList.toggle('open'); });
         $('accessBtn').addEventListener('click', showAccess);
+        $('accessRefreshBtn').addEventListener('click', showAccess);
         $('resetBtn').addEventListener('click', resetSettings);
         $('logVisit').addEventListener('change', saveSettings);
         $('sideClose').addEventListener('click', function () { $('side').classList.remove('open'); });
@@ -5110,7 +5098,7 @@
         });
 
         // 普通设置：只落本地
-        ['modelSelect', 'temperature', 'saveDelay', 'sumPrompt'].forEach(function (id) {
+        ['saveDelay'].forEach(function (id) {
             $(id).addEventListener('change', saveSettings);
             $(id).addEventListener('input', saveSettings);
         });
@@ -5172,7 +5160,7 @@
         loadSettings();
         $('bookLabel').textContent = $('bookId').value.trim();
         bind();
-        setRawMode(localStorage.getItem('memos_rawmode') === '1');
+        setEditorMode('read');
         setStatus('读取中…');
         refresh(true).then(function () {
             var last = latestState();
@@ -5184,9 +5172,7 @@
             }
             renderSide();
             setStatus(syncedLabel(), 'saved');
-            // 🔴 刻意**不**自动 focus：刷新后光标停在第一行闪，会让人以为内容被选中/待编辑。
-            //    光标改为「点进纸张才出现」（contenteditable 的默认行为），跟只读浏览的心智一致。
-            //    快捷键不受影响：Ctrl+S 等全局键挂在 document 上，不依赖焦点。
+            // 初次打开保持只读，不自动聚焦；通过模式按钮进入编辑。
         });
         // 访问上报独立走：不占用 busy 锁、失败静默，绝不干扰笔记本身的读写
         reportVisit();
