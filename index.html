@@ -3893,12 +3893,25 @@
         if (isReadOnly()) return;
         rememberEditorSelection();
         var sel = window.getSelection(), range = null;
-        if (!rawMode && sel.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode) && !isAudioUiTarget(sel.anchorNode)) range = sel.getRangeAt(0).cloneRange();
-        else if (!rawMode && lastEditorRange && editor.contains(lastEditorRange.startContainer)) range = lastEditorRange.cloneRange();
+        if (!rawMode && sel && sel.rangeCount && isEditorTextPoint(sel.anchorNode) && isEditorTextPoint(sel.focusNode)) range = sel.getRangeAt(0).cloneRange();
+        else if (!rawMode && lastEditorRange && isEditorTextPoint(lastEditorRange.startContainer) && isEditorTextPoint(lastEditorRange.endContainer)) range = lastEditorRange.cloneRange();
+        if (!block && !rawMode && range && !range.collapsed) {
+            var selectedMusic = musicTracks().filter(function (audio) { return range.intersectsNode(audio); });
+            if (selectedMusic.length) {
+                var content = range.cloneContents();
+                Array.prototype.forEach.call(content.querySelectorAll('[data-md-audio]'), function (audio) { audio.remove(); });
+                if (selectedMusic.length !== 1 || content.textContent.replace(/[\u200b\u00a0]/g, ' ').trim() ||
+                    content.querySelector('img,hr,pre,table,ul,ol,input')) {
+                    toast('请单独选中一首音乐修改，或选择普通文字添加链接'); return;
+                }
+                // 音乐控件的按钮、时间和状态不是链接名称，单独选中时复用音乐编辑。
+                block = selectedMusic[0];
+            }
+        }
         if (!block && range && (layoutAncestor(range.startContainer, 'pre,code', editor) || layoutAncestor(range.endContainer, 'pre,code', editor))) {
             toast('代码内请直接输入链接文字，正文链接请插入到代码之外'); return;
         }
-        var selected = rawMode ? rawBox.value.slice(rawBox.selectionStart, rawBox.selectionEnd) :
+        var selected = block ? '' : rawMode ? rawBox.value.slice(rawBox.selectionStart, rawBox.selectionEnd) :
             (range ? range.toString() : '');
         linkDialogContext = { block: block || null, range: range, start: rawBox.selectionStart, end: rawBox.selectionEnd,
             revision: editorLoadRevision, modeRevision: editorModeRevision, source: rawMode };
@@ -4072,7 +4085,22 @@
             $('linkUrl').placeholder = this.value === 'audio' ? 'https://example.com/music.mp3' : 'https://';
             $('linkError').hidden = true;
         });
-        $('linkDialog').addEventListener('click', function (e) { if (e.target === this) closeLinkDialog(true); });
+        // 从输入框拖到遮罩上松开也可能生成遮罩 click；只接收在遮罩上完成的轻点。
+        var backdropPointer = null;
+        $('linkDialog').addEventListener('pointerdown', function (e) {
+            backdropPointer = e.target === this && e.button === 0 ?
+                { id: e.pointerId, x: e.clientX, y: e.clientY } : null;
+        });
+        $('linkDialog').addEventListener('pointermove', function (e) {
+            if (backdropPointer && backdropPointer.id === e.pointerId &&
+                (Math.abs(e.clientX - backdropPointer.x) > 6 || Math.abs(e.clientY - backdropPointer.y) > 6)) backdropPointer = null;
+        });
+        $('linkDialog').addEventListener('pointerup', function (e) {
+            var start = backdropPointer; backdropPointer = null;
+            if (start && start.id === e.pointerId && e.target === this &&
+                Math.abs(e.clientX - start.x) <= 6 && Math.abs(e.clientY - start.y) <= 6) closeLinkDialog(true);
+        });
+        $('linkDialog').addEventListener('pointercancel', function () { backdropPointer = null; });
         $('linkDialog').addEventListener('keydown', function (e) {
             e.stopPropagation();
             if (e.key === 'Escape') { e.preventDefault(); closeLinkDialog(true); }
