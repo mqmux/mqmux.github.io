@@ -705,6 +705,8 @@
     .editor table {
         border-collapse: collapse;
         margin: 0.85em 0;
+        margin-inline-start: var(--md-block-start, 0px);
+        margin-inline-end: var(--md-block-end, 0px);
         max-width: 100%;
         font-size: 0.9em;
     }
@@ -722,8 +724,8 @@
     :is(.editor, .sheet-body) [data-md-layout] { margin: 0.6em 0; min-width: 0; }
     :is(.editor, .sheet-body) [data-md-layout] > :first-child { margin-top: 0; }
     :is(.editor, .sheet-body) [data-md-layout] > :last-child { margin-bottom: 0; }
-    :is(.editor, .sheet-body) [data-md-layout="center"] { text-align: center; }
-    :is(.editor, .sheet-body) [data-md-layout="right"] { text-align: right; }
+    :is(.editor, .sheet-body) [data-md-layout="center"] { text-align: center; --md-block-start: auto; --md-block-end: auto; }
+    :is(.editor, .sheet-body) [data-md-layout="right"] { text-align: right; --md-block-start: auto; --md-block-end: 0px; }
     :is(.editor, .sheet-body) [data-md-layout="small"] { font-size: 0.85em; color: #a9c9d9; }
     .editor [data-md-layout="small"] :is(h1,h2,h3,h4,h5,h6) { font-size: 1em; }
     :is(.editor, .sheet-body) [data-md-layout="row"] {
@@ -734,10 +736,12 @@
         column-gap: 1.5em;
         row-gap: 0.25em;
         text-align: left;
+        --md-block-start: 0px;
+        --md-block-end: 0px;
     }
     :is(.editor, .sheet-body) [data-md-layout="row"]:has(img) { align-items: flex-start; }
     :is(.editor, .sheet-body) [data-md-cell] { min-width: min(4em, 100%); max-width: 100%; flex: 0 1 auto; }
-    :is(.editor, .sheet-body) [data-md-cell="right"] { margin-left: auto; text-align: right; }
+    :is(.editor, .sheet-body) [data-md-cell="right"] { margin-left: auto; text-align: right; --md-block-start: auto; --md-block-end: 0px; }
     :is(.editor, .sheet-body) [data-md-cell] > :first-child { margin-top: 0; }
     :is(.editor, .sheet-body) [data-md-cell] > :last-child { margin-bottom: 0; }
     .editor [data-md-cell] { min-height: 1.78em; }
@@ -872,6 +876,8 @@
         max-width: 540px;
         width: 100%;
         margin: 0.8em 0;
+        margin-inline-start: var(--md-block-start, 0px);
+        margin-inline-end: var(--md-block-end, 0px);
         padding: 9px 11px;
         background: #0d1922;
         border: 1px solid #243d4b;
@@ -1371,7 +1377,7 @@
 
     // 保留普通文字里的加号，避免与相邻下划线分隔符拼接。
     function escapeUnderlineMd(text) {
-        return String(text).replace(/\\(?=[\\+]|$)/g, '\\\\')
+        return String(text).replace(/\\(?=[\\+|]|$)/g, '\\\\')
             .replace(/^\++|\++$|\+{2,}/g, function (run) {
                 return run.replace(/\+/g, function (symbol) { return '\\' + symbol; });
             });
@@ -1440,9 +1446,26 @@
     }
 
     function inlineLinkAt(source, start) {
-        var prefix = source.slice(start).match(/^(!?)\[([^\]\n]*)\]\(/);
-        if (!prefix) return null;
-        var begin = start + prefix[0].length, depth = 1;
+        var image = source.charAt(start) === '!';
+        var open = start + (image ? 1 : 0);
+        if (source.charAt(open) !== '[') return null;
+        var labelStart = open + 1, labelEnd = -1, labelDepth = 1;
+        for (var cursor = labelStart; cursor < source.length; cursor++) {
+            var symbol = source.charAt(cursor);
+            if (symbol === '\n') return null;
+            if (symbol === '\\' && cursor + 1 < source.length) { cursor++; continue; }
+            if (symbol === '`') {
+                var run = source.slice(cursor).match(/^`+/)[0];
+                var closing = source.indexOf(run, cursor + run.length);
+                while (closing >= 0 && (source.charAt(closing - 1) === '`' || source.charAt(closing + run.length) === '`')) closing = source.indexOf(run, closing + run.length);
+                if (closing >= 0 && source.slice(cursor, closing).indexOf('\n') < 0) { cursor = closing + run.length - 1; continue; }
+                cursor += run.length - 1; continue;
+            }
+            if (symbol === '[' && ++labelDepth > 32) return null;
+            if (symbol === ']' && --labelDepth === 0) { labelEnd = cursor; break; }
+        }
+        if (labelEnd < 0 || source.charAt(labelEnd + 1) !== '(') return null;
+        var begin = labelEnd + 2, depth = 1;
         for (var i = begin; i < source.length; i++) {
             var ch = source.charAt(i);
             if (/\s/.test(ch)) return null;
@@ -1450,14 +1473,18 @@
             if (ch === '(') { if (++depth > 32) return null; }
             else if (ch === ')' && --depth === 0) {
                 if (i === begin) return null;
-                return [source.slice(start, i + 1), prefix[1], prefix[2],
+                return [source.slice(start, i + 1), image ? '!' : '', source.slice(labelStart, labelEnd),
                     source.slice(begin, i).replace(/\\([\\()])/g, '$1')];
             }
         }
         return null;
     }
 
-    function inlineMd(s) {
+    function escapeMdLinkText(text) { return String(text).replace(/[\\[\]]/g, '\\$&'); }
+    function escapeMdLinkLabel(text) { return escapeMdLinkText(text).replace(/[+*~`]/g, '\\$&'); }
+    function escapeMdLinkUrl(url) { return String(url).replace(/[\\()]/g, '\\$&'); }
+
+    function inlineMd(s, allowBreaks, linkLabel) {
         // 先按原文顺序隔离代码、链接、图片和转义字符。
         // href/alt 不参与格式匹配，避免其中的 ++ / ** 改写标签属性。
         var tokens = [], source = String(s), text = '', i = 0;
@@ -1467,7 +1494,12 @@
         }
         while (i < source.length) {
             var ch = source.charAt(i);
-            if (ch === '\\' && /[\\+]/.test(source.charAt(i + 1)) && i + 1 < source.length) {
+            if (ch === '\n') { text += hold('<br>'); i++; continue; }
+            if (allowBreaks && ch === '&') {
+                var cellBreak = source.slice(i).match(/^&lt;br\s*\/?&gt;/i);
+                if (cellBreak) { text += hold('<br>'); i += cellBreak[0].length; continue; }
+            }
+            if (ch === '\\' && (/[\\+]/.test(source.charAt(i + 1)) || (linkLabel && /[\[\]*~`]/.test(source.charAt(i + 1)))) && i + 1 < source.length) {
                 text += hold(source.charAt(i + 1)); i += 2; continue;
             }
             if (ch === '`') {
@@ -1475,14 +1507,15 @@
                 while (end >= 0 && (source.charAt(end - 1) === '`' || source.charAt(end + fence.length) === '`')) end = source.indexOf(fence, end + fence.length);
                 if (end >= 0) {
                     var code = source.slice(i + fence.length, end);
-                    if (code && code.indexOf('\n') < 0) {
+                    if (code) {
+                        code = code.replace(/\n/g, ' ');
                         if (/^ .* $/.test(code) && /[^ ]/.test(code)) code = code.slice(1, -1);
                         text += hold('<code>' + code + '</code>'); i = end + fence.length; continue;
                     }
                 }
                 text += fence; i += fence.length; continue;
             }
-            if (ch === '[' || (ch === '!' && source.charAt(i + 1) === '[')) {
+            if ((!linkLabel && ch === '[') || (ch === '!' && source.charAt(i + 1) === '[')) {
                 var link = inlineLinkAt(source, i);
                 if (link) {
                     var safe = safeHref(link[3]), length = link[0].length, html;
@@ -1490,11 +1523,12 @@
                         var suffix = source.slice(i + length).match(/^\{width=([^}\n]*)\}/);
                         var width = suffix ? imageWidth(suffix[1]) : '';
                         if (suffix) length += suffix[0].length;
-                        html = safe ? '<img src="' + escAttr(safe) + '" alt="' + escAttr(link[2]) + '" loading="lazy"' + (width ? ' width="' + width + '"' : '') + '>' : link[2];
+                        var alt = link[2].replace(/\\([\\[\]])/g, '$1');
+                        html = safe ? '<img src="' + escAttr(safe) + '" alt="' + escAttr(alt) + '" loading="lazy"' + (width ? ' width="' + width + '"' : '') + '>' : alt;
                         // 无效宽度作为图片后的字面文字保留，也不再参与格式匹配。
                         if (suffix && (!safe || !width)) html += suffix[0];
                     } else {
-                        var label = inlineMd(link[2]);
+                        var label = inlineMd(link[2], true, true);
                         html = safe ? '<a href="' + escAttr(safe) + '" target="_blank" rel="noreferrer">' + label + '</a>' : label;
                     }
                     text += hold(html); i += length; continue;
@@ -1505,10 +1539,21 @@
         return inlineFormats(text).replace(/\u0001(\d+)\u0001/g, function (_, index) { return tokens[Number(index)]; });
     }
 
+    function codeFenceStart(line) {
+        var match = String(line).match(/^[ \t]*(`{3,}|~{3,})([^\r\n]*)$/);
+        if (!match || (match[1].charAt(0) === '`' && match[2].indexOf('`') !== -1)) return null;
+        return { symbol: match[1].charAt(0), length: match[1].length, info: match[2].trim() };
+    }
+
+    function codeFenceEnd(line, fence) {
+        var match = String(line).match(/^[ \t]*(`{3,}|~{3,})[ \t]*$/);
+        return !!match && match[1].charAt(0) === fence.symbol && match[1].length >= fence.length;
+    }
+
     function isBlockStart(line) {
         // [-*+] / \d+[.)] 后面允许直接是行尾：空列表项（单独一行「-」）也要算块起点
-        return /^\s*(#{1,6}\s|>|[-*+](?:\s|$)|\d+[.)](?:\s|$)|```)/.test(line) ||
-               /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line) || !!mdLayoutStart(line) || !!parseAudioLine(line);
+        return /^\s*(#{1,6}\s|>|[-*+](?:\s|$)|\d+[.)](?:\s|$))/.test(line) ||
+               /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line) || !!codeFenceStart(line) || !!mdLayoutStart(line) || !!parseAudioLine(line);
     }
 
     // 增强 Markdown 只接受这四种布局，原文与历史记录仍保存为可阅读的纯文本。
@@ -1525,10 +1570,11 @@
     // 先找到配对的关闭标记再渲染；未闭合、未知类型都保持普通文本。
     // split 仅在 row 的直接内容层分列，嵌套布局和代码围栏里的同名文字不会分列。
     function mdLayoutBounds(lines, start, type) {
-        var depth = 1, fenced = false, split = -1;
+        var depth = 1, fenced = null, split = -1;
         for (var i = start + 1; i < lines.length; i++) {
-            if (/^\s*```/.test(lines[i])) { fenced = !fenced; continue; }
-            if (fenced) continue;
+            if (fenced) { if (codeFenceEnd(lines[i], fenced)) fenced = null; continue; }
+            var fence = codeFenceStart(lines[i]);
+            if (fence) { fenced = fence; continue; }
             if (mdLayoutStart(lines[i])) { depth++; continue; }
             if (/^[ \t]*:::[ \t]*$/.test(lines[i])) {
                 depth--;
@@ -1562,16 +1608,31 @@
     function tableCells(line) {
         var s = String(line).trim();
         if (s.charAt(0) === '|') s = s.slice(1);
-        if (s.charAt(s.length - 1) === '|') s = s.slice(0, -1);
-        var cells = [], cell = '', escaped = false;
+        var slashCount = 0;
+        for (var end = s.length - 2; end >= 0 && s.charAt(end) === '\\'; end--) slashCount++;
+        if (s.charAt(s.length - 1) === '|' && slashCount % 2 === 0) s = s.slice(0, -1);
+        var cells = [], cell = '';
         for (var i = 0; i < s.length; i++) {
             var ch = s.charAt(i);
-            if (escaped) { cell += ch; escaped = false; }
-            else if (ch === '\\') escaped = true;
+            if (ch === '`') {
+                var fence = s.slice(i).match(/^`+/)[0], close = s.indexOf(fence, i + fence.length);
+                while (close >= 0 && (s.charAt(close - 1) === '`' || s.charAt(close + fence.length) === '`')) close = s.indexOf(fence, close + fence.length);
+                if (close >= 0) {
+                    var code = s.slice(i, close + fence.length);
+                    // 完整代码跨度内只去掉管道前为表格补的一个转义，原有反斜杠保留。
+                    if (!/(^|[^\\])\|/.test(code)) {
+                        cell += code.replace(/\\\|/g, '|');
+                        i = close + fence.length - 1; continue;
+                    }
+                }
+            }
+            if (ch === '\\' && i + 1 < s.length) {
+                var next = s.charAt(++i);
+                cell += next === '|' ? '|' : '\\' + next;
+            }
             else if (ch === '|') { cells.push(cell.trim()); cell = ''; }
             else cell += ch;
         }
-        if (escaped) cell += '\\';
         cells.push(cell.trim());
         return cells;
     }
@@ -1590,13 +1651,18 @@
         return aligns;
     }
 
+    function isTableStart(lines, index) {
+        return index + 1 < lines.length && lines[index].indexOf('|') >= 0 &&
+            !!tableAlignments(lines[index + 1], tableCells(lines[index]).length);
+    }
+
     // 单元格内容：Markdown 表格里没有真正的换行，只能写 <br>。
     // esc() 会把它转义成 &lt;br&gt;，这里再放回来，才能让「单元格内换行」往返不丢。
     // 空单元格也补一个 <br>：否则渲染出来是个没有高度的空格子，鼠标很难点进去。
     function cellMd(text) {
         var t = String(text == null ? '' : text);
         if (!t.trim()) return '<br>';
-        return inlineMd(esc(t)).replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+        return inlineMd(esc(t), true);
     }
 
     function listToken(line) {
@@ -1625,13 +1691,16 @@
             var item = list.items[i];
             // 任务清单：认 [ ] / [x] / [X] / [✔] / [✓] / [☑]。
             // 原记号存进 data-mark，写回时原样输出 —— 否则 [X] 会被规范化成 [x]、[✔] 会被吃掉。
-            var task = list.type === 'ul' ? item.text.match(/^\[([ xX\u2714\u2713\u2611])\]\s*(.*)$/) : null;
+            var task = list.type === 'ul' ? item.text.match(/^\[([ xX\u2714\u2713\u2611])\][ \t]*([\s\S]*)$/) : null;
             var done = task ? isDoneMark(task[1]) : false;
             var content = task ? task[2] : item.text;
             html += '<li' + (task ? ' data-task="' + (done ? 'done' : 'todo') + '" data-mark="' + escAttr(task[1]) + '"' : '') + '>' +
                 (task ? '<input type="checkbox" tabindex="-1"' + (done ? ' checked' : '') + '> ' : '') +
                 inlineMd(esc(content));
-            for (var j = 0; j < item.children.length; j++) html += renderList(item.children[j]);
+            for (var j = 0; j < item.parts.length; j++) {
+                var part = item.parts[j];
+                html += part.list ? renderList(part.list) : '<p>' + inlineMd(esc(part.text)) + '</p>';
+            }
             html += '</li>';
         }
         return html + '</' + list.type + '>';
@@ -1659,19 +1728,30 @@
             if (li.tagName.toLowerCase() !== 'li') continue;
             var taskState = li.getAttribute('data-task');
             var check = li.querySelector(':scope > input[type="checkbox"]');
-            var content = '';
-            var nested = [];
-            for (var j = 0; j < li.childNodes.length; j++) {
-                var child = li.childNodes[j];
-                if (child.nodeType === 1 && child.tagName.toLowerCase() === 'input') continue;
-                if (child.nodeType === 1 && /^(ul|ol)$/i.test(child.tagName)) { nested.push(child); continue; }
-                content += child.nodeType === 1 ? nodeToMd(child) : (child.nodeType === 3 ? escapeUnderlineMd(child.nodeValue) : '');
-            }
             var prefix = list.tagName.toLowerCase() === 'ul' ?
                 (taskState ? '- [' + taskMark(li, check) + '] ' : '- ') : (idx++) + '. ';
             var indent = new Array(depth + 1).join('  ');
-            lines.push(indent + prefix + content.trim().replace(/\n/g, '\n' + indent + '  '));
-            for (var n = 0; n < nested.length; n++) lines.push(listToMd(nested[n], depth + 1));
+            var content = '', written = false;
+            function flushItemText() {
+                var text = content.replace(/^[ \t]+/, '').replace(/\s+$/, ''); content = '';
+                if (!written || text) lines.push(indent + (written ? '  ' : prefix) + text.replace(/\n/g, '\n' + indent + '  '));
+                written = true;
+            }
+            for (var j = 0; j < li.childNodes.length; j++) {
+                var child = li.childNodes[j];
+                if (child.nodeType === 1 && child.tagName.toLowerCase() === 'input') continue;
+                if (child.nodeType === 1 && /^(ul|ol)$/i.test(child.tagName)) {
+                    flushItemText(); lines.push(listToMd(child, depth + 1)); continue;
+                }
+                if (child.nodeType === 1 && /^(p|div)$/i.test(child.tagName) &&
+                    !child.hasAttribute('data-md-audio') && !child.hasAttribute('data-md-layout')) {
+                    if (content && !/\n$/.test(content)) content += '\n';
+                    content += inlineToMd(child) + '\n';
+                    continue;
+                }
+                content += child.nodeType === 1 ? nodeToMd(child) : (child.nodeType === 3 ? escapeUnderlineMd(child.nodeValue) : '');
+            }
+            flushItemText();
         }
         return lines.join('\n');
     }
@@ -1694,7 +1774,9 @@
         return true;
     }
 
-    function md2html(md) {
+    function md2html(md, allowAudio, depth) {
+        depth = depth || 0;
+        if (depth > 48) return '<p>' + esc(String(md == null ? '' : md)).replace(/\r\n?|\n/g, '<br>') + '</p>';
         var src = String(md == null ? '' : md).replace(/\r\n?/g, '\n');
         var lines = src.split('\n');
         var html = [];
@@ -1711,7 +1793,7 @@
         }
         function closeQuote() {
             if (quote) {
-                html.push('<blockquote>' + quote.map(function (t) { return inlineMd(esc(t)); }).join('<br>') + '</blockquote>');
+                html.push('<blockquote>' + md2html(quote.join('\n'), false, depth + 1) + '</blockquote>');
                 quote = null;
             }
         }
@@ -1742,13 +1824,13 @@
                 if (layout === 'row') {
                     if (layoutBounds.split >= 0) {
                         html.push(mdRowHtml(
-                            md2html(lines.slice(i + 1, layoutBounds.split).join('\n')),
-                            md2html(lines.slice(layoutBounds.split + 1, layoutBounds.end).join('\n'))));
+                            md2html(lines.slice(i + 1, layoutBounds.split).join('\n'), allowAudio, depth + 1),
+                            md2html(lines.slice(layoutBounds.split + 1, layoutBounds.end).join('\n'), allowAudio, depth + 1)));
                     } else {
-                        html.push(splitMdRowHtml(md2html(lines.slice(i + 1, layoutBounds.end).join('\n'))));
+                        html.push(splitMdRowHtml(md2html(lines.slice(i + 1, layoutBounds.end).join('\n'), allowAudio, depth + 1)));
                     }
                 } else {
-                    var layoutBody = md2html(lines.slice(i + 1, layoutBounds.end).join('\n'));
+                    var layoutBody = md2html(lines.slice(i + 1, layoutBounds.end).join('\n'), allowAudio, depth + 1);
                     html.push('<div data-md-layout="' + layout + '">' + (layoutBody || '<p><br></p>') + '</div>');
                 }
                 i = layoutBounds.end;
@@ -1756,13 +1838,14 @@
             }
 
             // 代码块
-            if (/^\s*```/.test(line)) {
+            var fence = codeFenceStart(line);
+            if (fence) {
                 flushBlank();
                 closeAll();
-                var lang = line.replace(/^\s*```/, '').replace(/[`\s]+$/, '').trim();
+                var lang = fence.info;
                 var buf = [];
                 i++;
-                while (i < lines.length && !/^\s*```/.test(lines[i])) { buf.push(lines[i]); i++; }
+                while (i < lines.length && !codeFenceEnd(lines[i], fence)) { buf.push(lines[i]); i++; }
                 html.push('<pre' + (lang ? ' data-lang="' + escAttr(esc(lang)) + '"' : '') + '><code>' +
                     esc(buf.join('\n')) + '</code></pre>');
                 continue;
@@ -1772,7 +1855,7 @@
             if (!line.trim()) { closeAll(); pendingBlank++; continue; }
 
             var music = parseAudioLine(line);
-            if (music) {
+            if (music && allowAudio !== false) {
                 flushBlank();
                 closeAll();
                 html.push(audioBlockHtml(music.title, music.url));
@@ -1792,7 +1875,7 @@
                     }
                     tableHtml += '</tr></thead><tbody>';
                     i += 2;
-                    while (i < lines.length && lines[i].indexOf('|') >= 0 && lines[i].trim()) {
+                    while (i < lines.length && lines[i].indexOf('|') >= 0 && lines[i].trim() && !isBlockStart(lines[i])) {
                         var cells = tableCells(lines[i]);
                         tableHtml += '<tr>';
                         for (var td = 0; td < headers.length; td++) {
@@ -1816,7 +1899,7 @@
                 flushBlank();
                 closeAll();
                 var lv = hm[1].length;
-                html.push('<h' + lv + '>' + inlineMd(esc(hm[2].trim())) + '</h' + lv + '>');
+                html.push('<h' + lv + '>' + inlineMd(esc(hm[2].trim()), true) + '</h' + lv + '>');
                 continue;
             }
 
@@ -1842,7 +1925,25 @@
                 var cursor = i;
                 while (cursor < lines.length) {
                     var itemToken = listToken(lines[cursor]);
-                    if (!itemToken || itemToken.indent < rootIndent) break;
+                    if (!itemToken) {
+                        var continued = lines[cursor].replace(/^[ \t]+/, function (space) { return space.replace(/\t/g, '    '); });
+                        var leading = continued.match(/^ */)[0].length;
+                        while (stack.length > 1 && leading < stack[stack.length - 1].indent + 2) stack.pop();
+                        var activeFrame = stack[stack.length - 1];
+                        var ownerItem = activeFrame.list.items[activeFrame.list.items.length - 1];
+                        if (ownerItem && leading >= activeFrame.indent + 2) {
+                            var continuation = continued.slice(activeFrame.indent + 2);
+                            if (!ownerItem.parts.length) ownerItem.text += '\n' + continuation;
+                            else {
+                                var lastPart = ownerItem.parts[ownerItem.parts.length - 1];
+                                if (lastPart.list) ownerItem.parts.push({ text: continuation });
+                                else lastPart.text += '\n' + continuation;
+                            }
+                            cursor++; continue;
+                        }
+                        break;
+                    }
+                    if (itemToken.indent < rootIndent) break;
                     var frame = stack[stack.length - 1];
                     if (itemToken.indent === rootIndent && itemToken.type !== rootList.type) break;
                     while (stack.length > 1 && itemToken.indent < stack[stack.length - 1].indent) stack.pop();
@@ -1851,16 +1952,16 @@
                         var owner = frame.list.items[frame.list.items.length - 1];
                         if (!owner) break;
                         var childList = newList(itemToken);
-                        owner.children.push(childList);
+                        owner.parts.push({ list: childList });
                         stack.push({ indent: itemToken.indent, list: childList, owner: owner });
                         frame = stack[stack.length - 1];
                     } else if (itemToken.type !== frame.list.type) {
                         if (!frame.owner) break;
                         var siblingList = newList(itemToken);
-                        frame.owner.children.push(siblingList);
+                        frame.owner.parts.push({ list: siblingList });
                         frame.list = siblingList;
                     }
-                    frame.list.items.push({ text: itemToken.text, children: [] });
+                    frame.list.items.push({ text: itemToken.text, parts: [] });
                     cursor++;
                 }
                 html.push(renderList(rootList));
@@ -1872,11 +1973,11 @@
             flushBlank();
             closeAll();
             var pb = [line];
-            while (i + 1 < lines.length && lines[i + 1].trim() && !isBlockStart(lines[i + 1])) {
+            while (i + 1 < lines.length && lines[i + 1].trim() && !isBlockStart(lines[i + 1]) && !isTableStart(lines, i + 1)) {
                 i++;
                 pb.push(lines[i]);
             }
-            html.push('<p>' + pb.map(function (t) { return inlineMd(esc(t)); }).join('<br>') + '</p>');
+            html.push('<p>' + inlineMd(esc(pb.join('\n'))) + '</p>');
         }
         closeAll();
         // 文档末尾的空行同样要还原：编辑器里它就是末尾的空段落（用户按回车留的白）。
@@ -1898,12 +1999,12 @@
         var tag = node.tagName.toLowerCase();
         if (tag === 'img') {
             var width = imageWidth(node.getAttribute('width'));
-            return '![' + (node.getAttribute('alt') || '') + '](' + (node.getAttribute('src') || '') + ')' + (width ? '{width=' + width + '}' : '');
+            return '![' + escapeMdLinkText(node.getAttribute('alt') || '') + '](' + escapeMdLinkUrl(node.getAttribute('src') || '') + ')' + (width ? '{width=' + width + '}' : '');
         }
         if (tag === 'br') return '\n';
         // 代码原样取文字，独立处理反引号围栏。
         if (tag === 'code') {
-            var text = node.textContent;
+            var text = preText(node).replace(/\r\n?|\n/g, ' ');
             if (!text) return '';
             var runs = text.match(/`+/g) || [], longest = 0;
             runs.forEach(function (run) { longest = Math.max(longest, run.length); });
@@ -1929,7 +2030,7 @@
         if (strike) inner = '~~' + inner + '~~';
         if (underline) inner = '++' + inner + '++';
         if (strike || underline) return inner;
-        if (tag === 'a') return '[' + inner + '](' + (node.getAttribute('href') || '') + ')';
+        if (tag === 'a') return '[' + inner.replace(/\n/g, '<br>') + '](' + escapeMdLinkUrl(node.getAttribute('href') || '') + ')';
         return inner;
     }
 
@@ -1938,7 +2039,10 @@
         var kids = node.childNodes || [];
         for (var i = 0; i < kids.length; i++) {
             var n = kids[i];
-            if (n.nodeType === 3) { s += escapeUnderlineMd(n.nodeValue); continue; }
+            if (n.nodeType === 3) {
+                s += node.closest && node.closest('a') ? escapeMdLinkLabel(n.nodeValue) : escapeUnderlineMd(n.nodeValue);
+                continue;
+            }
             if (n.nodeType !== 1) continue;
             s += nodeToMd(n);
         }
@@ -1965,6 +2069,13 @@
     }
 
     var BLOCK_SEL = 'h1,h2,h3,h4,h5,h6,p,ul,ol,blockquote,pre,hr,div,table';
+    var CONTENT_SEL = 'img,hr,pre,table,ul,ol,input,[data-md-audio],[data-md-layout],[data-md-cell]';
+
+    function isEmptyEditableParagraph(el) {
+        return !!el && /^(P|DIV)$/.test(el.tagName) && !el.hasAttribute('data-md-audio') &&
+            !el.hasAttribute('data-md-layout') && !el.hasAttribute('data-md-cell') &&
+            !el.textContent.replace(/[\u200b\u00a0]/g, ' ').trim() && !el.querySelector(CONTENT_SEL);
+    }
 
     function layoutToMd(el) {
         var type = mdLayoutType(el.getAttribute('data-md-layout'));
@@ -2004,12 +2115,13 @@
                 // 若照常序列化成一行 '#'，重开后会被当成普通段落（正文里凭空多出个 #）。
                 // 所以降级成空块 —— 和空段落一个待遇，变成用户留的那行白。
                 if (!el.textContent.trim() && !el.querySelector('img,[data-md-audio]')) { out.push(''); return; }
-                out.push(new Array(Number(tag[1]) + 1).join('#') + ' ' + inlineToMd(el).trim());
+                out.push(new Array(Number(tag[1]) + 1).join('#') + ' ' + inlineToMd(el).trim().replace(/\n/g, '<br>'));
                 return;
             }
             if (tag === 'p') {
                 // 占位的尾段落（ensureTail 补的）不算内容，否则每次编辑都会多出一行空白
-                if (el.getAttribute && el.getAttribute('data-tail') === '1' && !el.textContent.trim() && !el.querySelector('[data-md-audio]')) return;
+                if (el.getAttribute && el.getAttribute('data-tail') === '1' && isEmptyEditableParagraph(el)) return;
+                if (el.querySelector(BLOCK_SEL)) { walk(el); return; }
                 out.push(inlineToMd(el).replace(/\s+$/, ''));
                 return;
             }
@@ -2048,7 +2160,7 @@
                 return;
             }
             if (tag === 'blockquote') {
-                var qInline = inlineToMd(el).trim();
+                var qInline = html2md(el).trim();
                 // 空引用（在引用最前面按回车时浏览器会造一个空 <blockquote>）→ 不是内容，
                 // 降级成空块，别在 md 里留下一个孤零零的 '>'（重开会变成空引用）
                 if (!qInline && !el.querySelector('img,pre,table,hr,[data-md-audio]')) { out.push(''); return; }
@@ -2059,7 +2171,10 @@
                 // 保留围栏的语言标识（```python），否则刷新后语言就没了；
                 // 尾巴上的空行也照原样留着 —— 用户在代码里敲的空行不该被吃掉（来回仍逐字一致）
                 var lng = el.getAttribute('data-lang') || '';
-                out.push('```' + lng + '\n' + preText(el) + '\n```');
+                var code = preText(el), fenceLength = 3, fenceSymbol = lng.indexOf('`') >= 0 ? '~' : '`';
+                (code.match(fenceSymbol === '`' ? /`+/g : /~+/g) || []).forEach(function (run) { fenceLength = Math.max(fenceLength, run.length + 1); });
+                var fence = new Array(fenceLength + 1).join(fenceSymbol);
+                out.push(fence + lng + '\n' + code + '\n' + fence);
                 return;
             }
             if (tag === 'hr') { out.push('---'); return; }
@@ -2067,6 +2182,7 @@
                 walk(el);
                 return;
             }
+            if (el.querySelector(BLOCK_SEL)) { walk(el); return; }
             var t = inlineToMd(el);
             if (t.trim()) out.push(t);
         }
@@ -2078,7 +2194,7 @@
                 var n = kids[i];
                 if (n.nodeType === 3) { buffer += escapeUnderlineMd(n.nodeValue); continue; }
                 if (n.nodeType !== 1) continue;
-                if (n.matches && n.matches(BLOCK_SEL)) {
+                if (n.matches && (n.matches(BLOCK_SEL) || n.querySelector(BLOCK_SEL))) {
                     if (buffer.trim()) { out.push(buffer.replace(/\s+$/, '')); buffer = ''; }
                     else if (buffer) { buffer = ''; }
                     emitBlock(n);
@@ -2102,7 +2218,8 @@
         var extra = 0;      // 待补的额外空行（每个空块算一行）
         var started = false;
         for (var k = 0; k < out.length; k++) {
-            var v = out[k].replace(/\u00a0/g, ' ').replace(/[ \t]+$/gm, '');
+            // 各文字块自行裁尾；这里不能全局裁剪，否则会改动代码行末的空格和缩进。
+            var v = out[k].replace(/\u00a0/g, ' ');
             if (v.trim() === '') { if (started) extra++; else head++; continue; }
             md += (started ? new Array(2 + extra + 1).join('\n') : new Array(head + 1).join('\n')) + v;
             extra = 0;
@@ -2852,18 +2969,19 @@
         }
         if (!rawMode) {
             Array.prototype.forEach.call(editor.querySelectorAll('h1,h2,h3,h4,h5,h6'), function (heading) {
-                if (!heading.closest('pre,table')) add(Number(heading.tagName[1]), heading.textContent, heading, 0);
+                if (!heading.closest('pre,table')) add(Number(heading.tagName[1]), preText(heading), heading, 0);
             });
         } else {
-            var lines = rawBox.value.split('\n'), offset = 0, fenced = false;
+            var lines = rawBox.value.split('\n'), offset = 0, fenced = null;
             lines.forEach(function (line) {
-                if (/^\s*```/.test(line)) fenced = !fenced;
-                else if (!fenced) {
+                if (fenced) { if (codeFenceEnd(line, fenced)) fenced = null; }
+                else if (codeFenceStart(line)) fenced = codeFenceStart(line);
+                else {
                     var m = line.match(/^\s*(#{1,6})[ \t]+(.*)$/);
                     if (m) {
                         var label = document.createElement('div');
-                        label.innerHTML = inlineMd(esc(m[2].trim()));
-                        add(m[1].length, label.textContent, null, offset);
+                        label.innerHTML = inlineMd(esc(m[2].trim()), true);
+                        add(m[1].length, preText(label), null, offset);
                     }
                 }
                 offset += line.length + 1;
@@ -3777,6 +3895,9 @@
         var sel = window.getSelection(), range = null;
         if (!rawMode && sel.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode) && !isAudioUiTarget(sel.anchorNode)) range = sel.getRangeAt(0).cloneRange();
         else if (!rawMode && lastEditorRange && editor.contains(lastEditorRange.startContainer)) range = lastEditorRange.cloneRange();
+        if (!block && range && (layoutAncestor(range.startContainer, 'pre,code', editor) || layoutAncestor(range.endContainer, 'pre,code', editor))) {
+            toast('代码内请直接输入链接文字，正文链接请插入到代码之外'); return;
+        }
         var selected = rawMode ? rawBox.value.slice(rawBox.selectionStart, rawBox.selectionEnd) :
             (range ? range.toString() : '');
         linkDialogContext = { block: block || null, range: range, start: rawBox.selectionStart, end: rawBox.selectionEnd,
@@ -3877,7 +3998,7 @@
         if (!url) { fail(audio ? '请输入 http 或 https 音频直链' : '请输入有效的链接地址'); return; }
         try {
             if (context.source) {
-                var md = audio ? audioMarkdown(title, url) : '[' + title + '](' + url + ')';
+                var md = audio ? audioMarkdown(title, url) : '[' + escapeMdLinkLabel(title) + '](' + escapeMdLinkUrl(url) + ')';
                 var start = context.start, end = context.end;
                 if (audio) {
                     if (start > 0 && rawBox.value.charAt(start - 1) !== '\n') md = '\n' + md;
@@ -3895,8 +4016,10 @@
                 } else restoreEditorSelection();
                 if (editorSelectionContainsAudio()) throw new Error('请选择文字添加普通链接；音乐块请使用修改按钮');
                 rememberEditorHistoryBoundary();
-                if (context.range && !context.range.collapsed && title === context.range.toString()) document.execCommand('createLink', false, url);
-                else document.execCommand('insertHTML', false, '<a href="' + escAttr(esc(url)) + '" target="_blank" rel="noreferrer">' + esc(title) + '</a>');
+                if (!preserveMusicOnEdit(function () {
+                    if (context.range && !context.range.collapsed && title === context.range.toString()) document.execCommand('createLink', false, url);
+                    else document.execCommand('insertHTML', false, '<a href="' + escAttr(esc(url)) + '" target="_blank" rel="noreferrer">' + esc(title) + '</a>');
+                })) { fail('已恢复正文，请重新选择位置插入'); return; }
                 ensureTail(); syncEmpty(); scheduleSave(); closeLinkDialog(false);
             }
         } catch (error) { fail(error.message || '未能插入，请重新选择位置'); }
@@ -3904,10 +4027,20 @@
 
     function bindAudioPlayers() {
         editor.addEventListener('click', function (e) {
-            if (!isAudioUiTarget(e.target)) return;
             var target = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+            var audio = target && target.closest('[data-md-audio]');
+            if (!audio) return;
             var button = target && target.closest('button[data-audio-action]');
-            if (!button) return;
+            if (!button) {
+                // 点击名称或卡片空白即选中音乐块，工具栏排版应作用于这首音乐。
+                if (isReadOnly() || target.closest('input,a')) return;
+                e.preventDefault();
+                editor.focus({ preventScroll: true });
+                var range = document.createRange(); range.selectNode(audio);
+                var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+                hideImageBar(); rememberEditorSelection(); syncLayoutButtons();
+                return;
+            }
             var block = button.closest('[data-md-audio]'); e.preventDefault();
             if (!block) return;
             var action = button.getAttribute('data-audio-action');
@@ -3973,8 +4106,30 @@
     }
 
     function preOf(node) {
-        var el = blockOf(node);
-        return el && el.tagName.toLowerCase() === 'pre' ? el : null;
+        var el = node && (node.nodeType === 1 ? node : node.parentElement);
+        var pre = el && el.closest('pre');
+        return pre && editor.contains(pre) ? pre : null;
+    }
+
+    // 浏览器偶尔把相邻光标落进 contenteditable=false 的音乐外壳；输入应落在其前后段落。
+    function moveCaretOutsideAudio() {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !sel.isCollapsed) return;
+        var range = sel.getRangeAt(0), node = range.startContainer;
+        if (!editor.contains(node) || isAudioUiTarget(node)) return;
+        var el = node.nodeType === 1 ? node : node.parentElement;
+        var block = el.closest('[data-md-audio]');
+        if (!block) return;
+        var prefix = document.createRange(); prefix.selectNodeContents(block);
+        prefix.setEnd(range.startContainer, range.startOffset);
+        var after = !!prefix.cloneContents().querySelector('[data-md-audio-ui]');
+        var p = after ? block.nextElementSibling : block.previousElementSibling;
+        if (!isEmptyEditableParagraph(p)) {
+            p = document.createElement('p'); p.appendChild(document.createElement('br'));
+            block.parentNode.insertBefore(p, after ? block.nextSibling : block);
+        }
+        range = document.createRange(); range.selectNodeContents(p); range.collapse(true);
+        sel.removeAllRanges(); sel.addRange(range);
     }
 
     function listItemOf(node) {
@@ -4005,29 +4160,24 @@
         if ((empty ? prefix.trim() : prefix) || before.querySelector('img') || (!empty && before.querySelector('br'))) return false;
 
         if (action === 'enter' && !empty) {
-            // 在标题之前插入，不替换整个标题：整块 insertHTML 会把后一段并进标题。
+            // 直接在标题前插一段，不让原生命令重排相邻音乐和其它块。
             var originalCaret = caret.cloneRange();
-            var beforeHeading = document.createRange();
-            beforeHeading.setStartBefore(heading);
-            beforeHeading.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(beforeHeading);
-            var inserted = document.execCommand('insertHTML', false, '<p><br></p>');
+            var blank = document.createElement('p'); blank.appendChild(document.createElement('br'));
+            heading.parentNode.insertBefore(blank, heading);
             sel.removeAllRanges();
             sel.addRange(originalCaret);
-            return inserted;
+            rememberEditorSelection();
+            return true;
         }
-        // 原生块格式命令只改标题标签，保留文字、行内格式、前后段落及撤销记录。
-        if (!empty && heading.querySelector('br')) {
-            // 标题有软换行时必须覆盖整块，否则 Chromium 只处理第一行，留下标题外壳。
-            var entireHeading = document.createRange();
-            entireHeading.selectNodeContents(heading);
-            sel.removeAllRanges();
-            sel.addRange(entireHeading);
-        }
-        var formatted = document.execCommand('formatBlock', false, 'P');
-        if (sel.rangeCount) sel.collapseToStart();
-        return formatted;
+        // 仅将当前标题换成普通段落，保留所有文字、软换行与行内格式。
+        var paragraph = document.createElement('p');
+        while (heading.firstChild) paragraph.appendChild(heading.firstChild);
+        if (!paragraph.firstChild) paragraph.appendChild(document.createElement('br'));
+        heading.replaceWith(paragraph);
+        var restored = document.createRange(); restored.selectNodeContents(paragraph); restored.collapse(true);
+        sel.removeAllRanges(); sel.addRange(restored);
+        rememberEditorSelection();
+        return true;
     }
 
     function markTaskItem(li, checked) {
@@ -4049,6 +4199,7 @@
             li.insertBefore(document.createTextNode(' '), box.nextSibling);
         }
         box.checked = !!checked;
+        if (checked) box.setAttribute('checked', ''); else box.removeAttribute('checked');
     }
 
     // 跳出代码块：光标落到 pre 后面那个段落里（没有段落就补一个）。
@@ -4058,8 +4209,7 @@
         var next = pre.nextSibling;
         var empty = !pre.textContent.replace(/[\u00a0 ]/g, '');
         var p = null;
-        if (next && next.nodeType === 1 && /^(p|div)$/.test(next.tagName.toLowerCase()) &&
-            !next.textContent.trim() && !next.querySelector('pre')) {
+        if (isEmptyEditableParagraph(next)) {
             p = next;
         } else {
             p = document.createElement('p');
@@ -4136,6 +4286,10 @@
         if (isReadOnly()) return;
         var sel = window.getSelection();
         if (!sel.rangeCount || sel.isCollapsed) return;
+        var selected = sel.getRangeAt(0).cloneContents();
+        if (tag === 'code' && (selected.querySelector(BLOCK_SEL + ',br,img,input') || /\n/.test(sel.toString()))) {
+            toast('行内代码只用于同一行文字，多行内容请使用代码块'); return;
+        }
         rememberEditorHistoryBoundary();
         var r = sel.getRangeAt(0);
         var box = document.createElement(tag);
@@ -4159,7 +4313,7 @@
         }
         editor.focus();
         rememberEditorHistoryBoundary();
-        document.execCommand('insertHTML', false, md2html(md));
+        if (!preserveMusicOnEdit(function () { document.execCommand('insertHTML', false, md2html(md)); })) return;
         ensureTail();
         syncEmpty();
         scheduleSave();
@@ -4171,6 +4325,12 @@
 
     function insertImage() {
         if (isReadOnly()) return;
+        if (!rawMode) {
+            var selection = window.getSelection();
+            if (selection && selection.rangeCount && layoutAncestor(selection.anchorNode, 'pre,code', editor)) {
+                toast('请在代码之外的正文段落插入图片'); return;
+            }
+        }
         var src = window.prompt('输入图片地址', 'https://');
         if (src === null) return;
         var safe = safeHref(src);
@@ -4179,7 +4339,7 @@
         if (alt === null) return;
         var width = askImageWidth('');
         if (width === null) return;
-        if (rawMode) insertMarkdownSnippet('![' + alt + '](' + safe + ')' + (width ? '{width=' + width + '}' : ''));
+        if (rawMode) insertMarkdownSnippet('![' + escapeMdLinkText(alt) + '](' + escapeMdLinkUrl(safe) + ')' + (width ? '{width=' + width + '}' : ''));
         else {
             restoreEditorSelection(); editor.focus();
             var image = document.createElement('img');
@@ -4187,7 +4347,7 @@
             image.setAttribute('src', safe); image.setAttribute('alt', alt); image.setAttribute('loading', 'lazy');
             image.setAttribute('data-note-image-edit', token);
             if (width) image.setAttribute('width', width);
-            document.execCommand('insertHTML', false, image.outerHTML);
+            if (!preserveMusicOnEdit(function () { document.execCommand('insertHTML', false, image.outerHTML); })) return;
             selectedNoteImage = editor.querySelector('[data-note-image-edit="' + token + '"]');
             if (selectedNoteImage) selectedNoteImage.removeAttribute('data-note-image-edit');
             ensureTail();
@@ -4230,7 +4390,7 @@
         editor.focus();
         var range = document.createRange(); range.selectNode(image);
         var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-        document.execCommand('insertHTML', false, clone.outerHTML);
+        if (!preserveMusicOnEdit(function () { document.execCommand('insertHTML', false, clone.outerHTML); })) return;
         selectedNoteImage = editor.querySelector('[data-note-image-edit="' + token + '"]');
         if (selectedNoteImage) selectedNoteImage.removeAttribute('data-note-image-edit');
         ensureTail(); syncEmpty(); rememberEditorSelection(); scheduleSave(); syncImageBar();
@@ -4278,18 +4438,21 @@
         var caret = sel.getRangeAt(0), node = caret.startContainer;
         if (!editor.contains(node)) return null;
         var el = node.nodeType === 1 ? node : node.parentElement;
-        if (el.closest('pre,code,td,th')) return null;
+        if (el.closest('pre,code,td,th,[data-md-audio]')) return null;
         var block = el.closest('p,div,h1,h2,h3,h4,h5,h6,blockquote,li');
         if (!block || block === editor || !editor.contains(block)) block = editor;
         var line = document.createRange();
         line.selectNodeContents(block);
         var beforeBreak = null, afterBreak = null;
-        var boundaries = Array.prototype.slice.call(block.querySelectorAll('br'));
-        if (block === editor) {
-            boundaries = boundaries.filter(function (br) { var owner = br.parentElement.closest(BLOCK_SEL); return owner === editor; });
-            boundaries = boundaries.concat(Array.prototype.slice.call(editor.children).filter(function (child) { return child.matches(BLOCK_SEL); }));
-            boundaries.sort(function (a, b) { return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1; });
-        }
+        // 每个块（包括音乐、表格、布局）都是边界，不能把容器内其余正文当作当前行。
+        var boundaries = Array.prototype.filter.call(block.querySelectorAll('br,' + BLOCK_SEL), function (boundary) {
+            var owner = boundary.parentElement;
+            while (owner && owner !== block) {
+                if (owner.matches(BLOCK_SEL)) return false;
+                owner = owner.parentElement;
+            }
+            return owner === block;
+        });
         boundaries.forEach(function (boundary) {
             var r = document.createRange();
             r.selectNode(boundary);
@@ -4304,6 +4467,8 @@
         remainder.setStart(caret.startContainer, caret.startOffset);
         return { block: block, caret: caret.cloneRange(), line: line, prefix: prefix, remainder: remainder,
             text: prefix.toString().replace(/\u00a0/g, ' '), beforeBreak: beforeBreak, afterBreak: afterBreak,
+            container: block === editor || block.hasAttribute('data-md-layout') || block.hasAttribute('data-md-cell') ||
+                boundaries.some(function (boundary) { return boundary.tagName !== 'BR'; }),
             li: listItemOf(node) };
     }
 
@@ -4313,25 +4478,64 @@
         return div.innerHTML;
     }
 
-    // 一次原生编辑命令替换当前行，保留前后行和行内格式，也保留浏览器撤销记录。
+    // 格式操作不能悄悄删除已有音乐；原生命令发生异常重排时恢复正文。
+    function preserveMusicOnEdit(action) {
+        var expected = musicTracks().map(function (block) {
+            return audioMarkdown(block.getAttribute('data-audio-title'), block.getAttribute('data-audio-src'));
+        });
+        var before = captureEditorSnapshot();
+        var savedHistory = editorHistory.slice(), savedIndex = editorHistoryIndex;
+        var savedGroup = editorHistoryGroup, savedAt = editorHistoryAt, savedMerge = editorHistoryMerge;
+        function rollback(message) {
+            restoreEditorSnapshot(before);
+            editorHistory = savedHistory; editorHistoryIndex = savedIndex;
+            editorHistoryGroup = savedGroup; editorHistoryAt = savedAt; editorHistoryMerge = savedMerge;
+            toast(message); return false;
+        }
+        try { action(); }
+        catch (error) { return rollback('未能应用此次格式，已恢复原内容'); }
+        if (!expected.length) return true;
+        function containsExpected(blocks) {
+            var index = 0;
+            Array.prototype.forEach.call(blocks, function (block) {
+                var value = audioMarkdown(block.getAttribute('data-audio-title'), block.getAttribute('data-audio-src'));
+                if (value === expected[index]) index++;
+            });
+            return index === expected.length;
+        }
+        if (!containsExpected(musicTracks())) return rollback('此次格式操作影响了音乐块，已恢复原内容');
+        // 音乐即使还在 DOM 中，也不能被包进标题或代码而在下次读取时变成普通文字。
+        try {
+            var rendered = document.createElement('div');
+            rendered.innerHTML = md2html(html2md(editor));
+            if (!containsExpected(rendered.querySelectorAll('[data-md-audio]'))) return rollback('此次格式无法完整保留音乐，已恢复原内容');
+        } catch (error) { return rollback('未能保留此次排版，已恢复原内容'); }
+        return true;
+    }
+
+    // 只替换当前逻辑行；直接操作 Range，避免原生 insertHTML 合并并吞掉相邻音乐等块。
     var shortcutSequence = 0;
-    function replaceShortcutLine(context, tag, attrs, kind) {
+    function replaceShortcutLine(context, tag, attrs, kind, keepPrefix) {
+        if (context.line.cloneContents().querySelector('[data-md-audio],table,[data-md-layout],[data-md-cell]')) return false;
         var content = fragmentHtml(context.remainder.cloneContents());
         var markerId = String(++shortcutSequence);
         var caretHtml = '<span data-md-caret="' + markerId + '">\u200b</span>';
         var html;
-        if (kind === 'hr') html = '<hr><p>' + caretHtml + '<br></p>';
+        if (kind === 'hr') html = '<hr><p>' + caretHtml + (content || '<br>') + '</p>';
         else if (tag === 'ul' || tag === 'ol') html = '<' + tag + (attrs || '') + '><li>' + caretHtml + (content || '<br>') + '</li></' + tag + '>';
         else if (kind === 'task') {
             html = '<li data-task="' + (isDoneMark(attrs) ? 'done' : 'todo') + '" data-mark="' + escAttr(attrs) + '"><input type="checkbox" tabindex="-1"' + (isDoneMark(attrs) ? ' checked' : '') + '> ' + caretHtml + (content || '<br>') + '</li>';
             if (!context.li) html = '<ul>' + html + '</ul>';
         }
-        else if (tag === 'pre') html = '<pre' + (attrs ? ' data-lang="' + escAttr(attrs) + '"' : '') + '><code>' + caretHtml + (content || '<br>') + '</code></pre>';
+        else if (tag === 'pre') html = '<pre' + (attrs ? ' data-lang="' + escAttr(esc(attrs)) + '"' : '') + '><code>' + caretHtml + (content || '<br>') + '</code></pre>';
         else html = '<' + tag + '>' + caretHtml + (content || '<br>') + '</' + tag + '>';
+        if (keepPrefix) {
+            var prefix = context.prefix.cloneContents();
+            if (prefix.textContent || prefix.querySelector(CONTENT_SEL)) html = '<p>' + fragmentHtml(prefix) + '</p>' + html;
+        }
         var selectionRange = context.line.cloneRange();
-        if (context.block !== editor) {
+        if (!context.container) {
             var oldTag = context.block.tagName.toLowerCase();
-            if (/^h[1-6]$/.test(oldTag)) oldTag = 'p';
             if (context.beforeBreak) {
                 var before = document.createRange();
                 before.selectNodeContents(context.block);
@@ -4347,28 +4551,28 @@
             selectionRange.selectNode(context.block);
         }
         var sel = window.getSelection();
-        var originalHtml = editor.innerHTML;
-        sel.removeAllRanges();
-        sel.addRange(selectionRange);
-        document.execCommand('insertHTML', false, html);
-        var marker = editor.querySelector('[data-md-caret="' + markerId + '"]');
-        if (!marker) {
-            if (editor.innerHTML === originalHtml) {
-                sel.removeAllRanges(); sel.addRange(context.caret);
-                return false;
-            }
-            // 内容已被原生命令替换时，不能再让默认空格覆盖扩大的选区。
-            var fallback = sel.rangeCount ? sel.getRangeAt(0) : null;
-            if (fallback) { fallback.collapse(false); sel.removeAllRanges(); sel.addRange(fallback); }
+        var before = captureEditorSnapshot();
+        var protectedNodes = Array.prototype.slice.call(editor.querySelectorAll('[data-md-audio],table,[data-md-layout],[data-md-cell]'));
+        try {
+            var box = document.createElement('div'); box.innerHTML = html;
+            var marker = box.querySelector('[data-md-caret="' + markerId + '"]');
+            if (!marker) return false;
+            var fragment = document.createDocumentFragment();
+            while (box.firstChild) fragment.appendChild(box.firstChild);
+            selectionRange.deleteContents();
+            selectionRange.insertNode(fragment);
+            if (protectedNodes.some(function (node) { return !editor.contains(node); })) throw new Error('块边界变化');
+            var next = document.createRange();
+            next.setStartBefore(marker); next.collapse(true);
+            marker.remove();
+            sel.removeAllRanges(); sel.addRange(next);
+            rememberEditorSelection();
             return true;
+        } catch (error) {
+            restoreEditorSnapshot(before);
+            toast('未能转换此行，已保留原内容');
+            return false;
         }
-        var next = document.createRange();
-        next.setStartBefore(marker);
-        next.collapse(true);
-        marker.remove();
-        sel.removeAllRanges();
-        sel.addRange(next);
-        return true;
     }
 
     function tryMarkdownShortcut(trigger, inserted) {
@@ -4390,7 +4594,11 @@
                     return false;
                 }
             }
-            if ((m = text.match(/^```([a-zA-Z0-9_+.-]*)[ \t]*$/))) return replaceShortcutLine(context, 'pre', m[1]);
+            var fence = codeFenceStart(text);
+            if (fence) {
+                if (context.remainder.cloneContents().querySelector(CONTENT_SEL)) return false;
+                return replaceShortcutLine(context, 'pre', fence.info);
+            }
             if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(text)) return replaceShortcutLine(context, '', '', 'hr');
             return false;
         }
@@ -4402,6 +4610,7 @@
                 head.setEnd(context.caret.startContainer, context.caret.startOffset);
                 if (head.toString().replace(/\u00a0/g, ' ') !== context.text) return false;
                 context.block = context.li;
+                context.container = false;
                 context.beforeBreak = context.afterBreak = null;
                 context.remainder = document.createRange();
                 context.remainder.selectNodeContents(context.li);
@@ -4849,7 +5058,7 @@
         // 光标丢了（例如刚从别的控件点回来）就补到文末，保证插入落在正文里
         if (!editor.contains(window.getSelection().anchorNode)) caretToEnd();
         editor.focus();
-        document.execCommand('insertHTML', false, html);
+        if (!preserveMusicOnEdit(function () { document.execCommand('insertHTML', false, html); })) return;
         var table = editor.querySelector('table[data-fresh]');
         if (table) {
             table.removeAttribute('data-fresh');
@@ -5095,6 +5304,12 @@
         var before = captureEditorSnapshot(), success = false;
         var start = copy.querySelector('[data-md-caret="' + id + '-start"]');
         var end = copy.querySelector('[data-md-caret="' + id + '-end"]');
+        // 音乐是不可编辑的整体，恢复选区时书签必须落在外面，才能继续调整或取消排版。
+        [start, end].forEach(function (marker, index) {
+            if (!marker) return;
+            var block = layoutAncestor(marker, '[data-md-audio]', copy);
+            if (block) block.parentNode.insertBefore(marker, index ? block.nextSibling : block);
+        });
         if (!start || (end && !(start.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING))) {
             toast('未能定位选中的段落，请重新选择后再试');
             return false;
@@ -5248,7 +5463,7 @@
 
     function exitMdLayout(row, before) {
         var next = before ? row.previousElementSibling : row.nextElementSibling;
-        if (!next || next.tagName !== 'P' || next.textContent.trim() || next.querySelector('img')) {
+        if (!next || next.tagName !== 'P' || !isEmptyEditableParagraph(next)) {
             next = document.createElement('p'); next.appendChild(document.createElement('br'));
             row.parentNode.insertBefore(next, before ? row : row.nextSibling);
         }
@@ -5267,7 +5482,7 @@
             if (action === 'exit') { exitMdLayout(layout, false); return true; }
             var lastBlock = blockOf(caret.startContainer);
             if (action === 'enter' && sel.isCollapsed && lastBlock && lastBlock !== layout && /^(P|DIV)$/.test(lastBlock.tagName) &&
-                lastBlock.parentElement === layout && !lastBlock.nextElementSibling && !lastBlock.textContent.replace(/\u200b/g, '').trim() && !lastBlock.querySelector('img,hr,pre,table,ul,ol')) {
+                lastBlock.parentElement === layout && !lastBlock.nextElementSibling && isEmptyEditableParagraph(lastBlock)) {
                 exitMdLayout(layout, false); return true;
             }
             return false;
@@ -5286,7 +5501,7 @@
         if (!sel.isCollapsed) return false;
         if (action === 'enter') {
             var block = blockOf(caret.startContainer);
-            if (!block || !/^(P|DIV)$/.test(block.tagName) || block === cell || block.textContent.replace(/\u200b/g, '').trim() || block.querySelector('img,hr,pre,table,ul,ol')) return false;
+            if (!block || block === cell || !isEmptyEditableParagraph(block)) return false;
             if (block.nextElementSibling) return false;
             if (cell.getAttribute('data-md-cell') === 'left') focusLayoutPart(row.querySelector(':scope > [data-md-cell="right"]'), false);
             else exitMdLayout(row, false);
@@ -5297,8 +5512,8 @@
             if (backwards) boundary.setEnd(caret.startContainer, caret.startOffset);
             else boundary.setStart(caret.startContainer, caret.startOffset);
             var fragment = boundary.cloneContents();
-            var emptyCell = !cell.textContent.replace(/\u200b/g, '').trim() && !cell.querySelector('img,hr,pre,table,input');
-            if (boundary.toString().replace(/\u200b/g, '') || fragment.querySelector(emptyCell ? 'img,hr,pre,table,input' : 'br,img,hr,pre,table,input')) return false;
+            var emptyCell = !cell.textContent.replace(/\u200b/g, '').trim() && !cell.querySelector(CONTENT_SEL);
+            if (boundary.toString().replace(/\u200b/g, '') || fragment.querySelector((emptyCell ? '' : 'br,') + CONTENT_SEL)) return false;
             // 列边界的删除不交给浏览器，防止把两个编辑区域合并。
             if (backwards && cell.getAttribute('data-md-cell') === 'right') focusLayoutPart(row.querySelector(':scope > [data-md-cell="left"]'), true);
             else if (!backwards && cell.getAttribute('data-md-cell') === 'left') focusLayoutPart(row.querySelector(':scope > [data-md-cell="right"]'), false);
@@ -5321,6 +5536,28 @@
             return;
         }
         if (blockCmdInCell(cmd)) return;
+        if (/^(h[1-6]|ul|ol|task|quote|pre|hr|table|code)$/.test(cmd)) {
+            var selection = window.getSelection();
+            var range = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+            var fragment = range && range.cloneContents();
+            if (fragment && fragment.querySelector('table,[data-md-layout],[data-md-cell]')) {
+                toast('请分别选择普通文字段落设置格式，表格和布局块将保留'); return;
+            }
+            var block = range && range.collapsed ? blockOf(range.startContainer) : null;
+            if (/^(h[1-6]|pre|quote)$/.test(cmd) && range &&
+                (layoutAncestor(range.startContainer, 'li', editor) || layoutAncestor(range.endContainer, 'li', editor) ||
+                 (fragment && fragment.querySelector('ul,ol')))) {
+                toast('请先退出列表，再设置标题、引用或代码块'); return;
+            }
+            if (/^(task|table|hr)$/.test(cmd) && range &&
+                (layoutAncestor(range.startContainer, 'pre,code', editor) || layoutAncestor(range.endContainer, 'pre,code', editor))) {
+                toast('请先退出代码，再插入正文格式'); return;
+            }
+            if (cmd === 'pre' && ((fragment && fragment.querySelector(CONTENT_SEL)) ||
+                (block && block.querySelector(CONTENT_SEL)))) {
+                toast('请只选择文字设置代码块，图片和其他内容请保留在正文中'); return;
+            }
+        }
         if (cmd === 'undo') undoEditorHistory(false);
         else if (cmd === 'redo') undoEditorHistory(true);
         else if (cmd.indexOf('layout-') === 0) applyMdLayout(cmd.slice(7));
@@ -5336,7 +5573,12 @@
         else if (cmd === 'task') insertMarkdownSnippet('- [ ] 任务');
         else if (cmd === 'quote') document.execCommand('formatBlock', false, 'BLOCKQUOTE');
         else if (cmd === 'pre') document.execCommand('formatBlock', false, 'PRE');
-        else if (cmd === 'hr') document.execCommand('insertHorizontalRule');
+        else if (cmd === 'hr') {
+            var context = shortcutContext();
+            if (!context || context.li || context.block.closest('blockquote') || !replaceShortcutLine(context, '', '', 'hr', true)) {
+                toast('请把光标放在普通文字段落中插入分隔线');
+            }
+        }
         else if (cmd === 'link') insertLink();
         else if (cmd === 'image') insertImage();
         else if (cmd === 'table') openTablePicker(btn || document.querySelector('button[data-cmd="table"]'));
@@ -5459,7 +5701,8 @@
             restoreEditorSelection();
             editor.focus();
             if (cmd !== 'undo' && cmd !== 'redo') rememberEditorHistoryBoundary();
-            cmdOf(cmd, btn);
+            if (cmd === 'undo' || cmd === 'redo') cmdOf(cmd, btn);
+            else if (!preserveMusicOnEdit(function () { cmdOf(cmd, btn); })) return;
             ensureTail();
             syncEmpty();
             scheduleSave();
@@ -5503,6 +5746,7 @@
             if (isAudioUiTarget(e.target)) return;
             refreshEditorInputMode();
             if (isReadOnly()) { markdownComposing = false; editorCompositionGroup = ''; return; }
+            moveCaretOutsideAudio();
             markdownComposing = true;
             editorCompositionGroup = 'composition:' + (++editorCompositionSequence);
             rememberEditorHistoryBoundary(editorCompositionGroup);
@@ -5525,6 +5769,7 @@
             if (isAudioUiTarget(e.target)) return;
             refreshEditorInputMode();
             if (isReadOnly()) { if (e.cancelable) e.preventDefault(); pendingTaskItem = null; return; }
+            if (/^insert/.test(e.inputType || '') && !e.isComposing && !markdownComposing) moveCaretOutsideAudio();
             if (historyRestoring) return;
             if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
                 if (e.cancelable) { e.preventDefault(); undoEditorHistory(e.inputType === 'historyRedo'); }
@@ -5590,6 +5835,7 @@
             refreshEditorInputMode();
             if (isReadOnly()) return;
             if (e.isComposing || markdownComposing || e.keyCode === 229) return;
+            if (e.key === 'Enter') moveCaretOutsideAudio();
             if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'Backspace' || e.key === 'Delete') {
                 rememberEditorHistoryBoundary(e.key === 'Backspace' ? 'delete-backward' : e.key === 'Delete' ? 'delete-forward' : '');
             }
@@ -5671,6 +5917,7 @@
         editor.addEventListener('paste', function (e) {
             if (isAudioUiTarget(e.target)) return;
             if (isReadOnly()) { e.preventDefault(); return; }
+            moveCaretOutsideAudio();
             var txt = (e.clipboardData || window.clipboardData).getData('text/plain');
             if (!txt) return;
             e.preventDefault();
@@ -5684,6 +5931,13 @@
                 scheduleSave();
                 syncTableBar();
                 return;
+            }
+            var pasteSelection = window.getSelection();
+            if (pasteSelection && pasteSelection.rangeCount &&
+                (layoutAncestor(pasteSelection.anchorNode, 'pre,code', editor) || layoutAncestor(pasteSelection.focusNode, 'pre,code', editor))) {
+                if (!preOf(pasteSelection.anchorNode) && !preOf(pasteSelection.focusNode)) txt = txt.replace(/\r\n?|\n/g, ' ');
+                document.execCommand('insertText', false, txt);
+                syncEmpty(); scheduleSave(); return;
             }
             var selection = window.getSelection();
             var pasteRange = selection && selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
@@ -5708,7 +5962,9 @@
                 return;
             }
             var looksMd = /\n/.test(txt) || !!singleAudio || /(^|\n)\s*(#{1,6}\s|[-*+]\s|>\s|\d+[.)]\s|```)/.test(txt);
-            if (looksMd && txt.trim()) document.execCommand('insertHTML', false, md2html(txt));
+            if (looksMd && txt.trim()) {
+                if (!preserveMusicOnEdit(function () { document.execCommand('insertHTML', false, md2html(txt)); })) return;
+            }
             else document.execCommand('insertText', false, txt);
             syncEmpty();
             scheduleSave();
