@@ -1245,6 +1245,8 @@
     var notes = [];         // 全部 user 消息（含占位）
     var live = [];          // 过滤后的有效笔记
     var busy = false;
+    var notebookRevision = 0, notesRequestId = 0;
+    var activeNotebook = null, refreshQueued = false;
     var editorMode = 'read'; // 每次打开默认只读；read → edit → raw → read
     var rawMode = false;     // 由 editorMode 派生，供 Markdown 原文相关逻辑使用
     var editorModeRevision = 0;
@@ -1437,6 +1439,24 @@
         return parse(0, '', 0).html;
     }
 
+    function inlineLinkAt(source, start) {
+        var prefix = source.slice(start).match(/^(!?)\[([^\]\n]*)\]\(/);
+        if (!prefix) return null;
+        var begin = start + prefix[0].length, depth = 1;
+        for (var i = begin; i < source.length; i++) {
+            var ch = source.charAt(i);
+            if (/\s/.test(ch)) return null;
+            if (ch === '\\' && /[\\()]/.test(source.charAt(i + 1)) && i + 1 < source.length) { i++; continue; }
+            if (ch === '(') { if (++depth > 32) return null; }
+            else if (ch === ')' && --depth === 0) {
+                if (i === begin) return null;
+                return [source.slice(start, i + 1), prefix[1], prefix[2],
+                    source.slice(begin, i).replace(/\\([\\()])/g, '$1')];
+            }
+        }
+        return null;
+    }
+
     function inlineMd(s) {
         // 先按原文顺序隔离代码、链接、图片和转义字符。
         // href/alt 不参与格式匹配，避免其中的 ++ / ** 改写标签属性。
@@ -1463,7 +1483,7 @@
                 text += fence; i += fence.length; continue;
             }
             if (ch === '[' || (ch === '!' && source.charAt(i + 1) === '[')) {
-                var link = source.slice(i).match(/^(!?)\[([^\]\n]*)\]\(([^)\s]+)\)/);
+                var link = inlineLinkAt(source, i);
                 if (link) {
                     var safe = safeHref(link[3]), length = link[0].length, html;
                     if (link[1]) {
@@ -2292,7 +2312,11 @@
         $('refreshBtn').disabled = b;
         $('accessBtn').disabled = b;
         $('accessRefreshBtn').disabled = b;
-        $('saveBtn').disabled = b;
+        $('saveBtn').disabled = b || !notebookReady();
+        if (!b && refreshQueued) {
+            refreshQueued = false;
+            Promise.resolve().then(function () { refresh(true); });
+        }
     }
 
     function savedLabel() { return lastSavedAt ? '已保存 ' + fmtFull(lastSavedAt) : '未保存 · Ctrl+S'; }
@@ -2343,6 +2367,21 @@
         return { user_id: $('userId').value.trim(), conversation_id: $('bookId').value.trim() };
     }
 
+    function notebookContext() {
+        var b = book();
+        return { revision: notebookRevision, user_id: b.user_id, conversation_id: b.conversation_id,
+            key: $('apiKey').value.trim() };
+    }
+
+    function notebookMatches(context) {
+        if (!context) return false;
+        var current = notebookContext();
+        return context.revision === current.revision && context.user_id === current.user_id &&
+            context.conversation_id === current.conversation_id && context.key === current.key;
+    }
+
+    function notebookReady() { return notebookMatches(activeNotebook); }
+
     function historyLimit() {
         var input = $('historyLimit');
         var value = parseInt(input.value, 10);
@@ -2353,6 +2392,7 @@
     }
 
     async function fetchNotes() {
+        var context = notebookContext(), requestId = ++notesRequestId;
         var b = book();
         if (!b.user_id || !b.conversation_id) throw new Error('请先在设置里填写笔记本 ID 和用户 ID');
         var data = await callApi('/get/message', {
@@ -2360,6 +2400,8 @@
             conversation_id: b.conversation_id,
             message_limit_number: historyLimit()
         });
+        // 设置改变或更新的读取已发出时，旧响应不能再改写当前笔记本。
+        if (!notebookMatches(context) || requestId !== notesRequestId) return false;
         var list = data.message_detail_list || [];
         notes = list
             .filter(function (m) { return m && m.role === 'user'; })
@@ -2373,6 +2415,7 @@
             return at - bt;
         });
         live = notes.filter(function (n) { return kindOf(n.text) === 'note'; });
+        return true;
     }
 
     // 写一条消息进笔记本（唯一写入路径）
@@ -3020,14 +3063,15 @@
         return rawMode ? rawBox.value : html2md(editor);
     }
 
-    function isReadOnly() { return editorMode === 'read'; }
+    function isReadOnly() { return editorMode === 'read' || !notebookReady(); }
 
     function syncEditorModeUI() {
-        var editing = editorMode === 'edit';
+        var ready = notebookReady();
+        var editing = editorMode === 'edit' && ready;
         editor.contentEditable = editing ? 'true' : 'false';
         editor.classList.toggle('read-only', isReadOnly());
         editor.style.display = rawMode ? 'none' : '';
-        rawBox.readOnly = !rawMode;
+        rawBox.readOnly = !rawMode || !ready;
         rawBox.classList.toggle('show', rawMode);
         Array.prototype.forEach.call(editor.querySelectorAll('li[data-task] input[type="checkbox"]'), function (input) {
             input.disabled = isReadOnly();
@@ -3041,6 +3085,7 @@
         var label = isReadOnly() ? '只读' : (rawMode ? '原文' : '排版');
         var nextLabel = isReadOnly() ? '排版编辑' : (rawMode ? '只读' : '原文编辑');
         $('rawToggle').textContent = label;
+        $('rawToggle').disabled = !ready;
         $('rawToggle').dataset.mode = editorMode;
         $('rawToggle').title = '当前' + label + '，点击切换到' + nextLabel;
         $('rawToggle').setAttribute('aria-label', $('rawToggle').title);
@@ -3052,6 +3097,7 @@
     }
 
     function setEditorMode(next) {
+        if (!notebookReady()) return;
         if (['read', 'edit', 'raw'].indexOf(next) < 0) return;
         var changed = next !== editorMode;
         var sourceChanged = (next === 'raw') !== rawMode;
@@ -3087,12 +3133,14 @@
     /* ================= 保存 ================= */
 
     function hasAutomaticSaveWork() {
+        if (!notebookReady()) return false;
         // 只读浏览历史本身不触发还原；先前实际编辑的草稿仍可完成自动保存。
         return !!saveTimer || (lastSavedMd !== null && currentMd() !== lastSavedMd) ||
             (!isReadOnly() && historyNeedsSave);
     }
 
     function scheduleSave(group) {
+        if (!notebookReady()) return;
         if (group !== 'history') recordEditorHistory(group);
         queueOutlineUpdate();
         if (autoSaveOn() && (!isReadOnly() || hasAutomaticSaveWork())) {
@@ -3108,6 +3156,7 @@
     }
 
     function doSave(keepalive, deferRefresh) {
+        if (!notebookReady()) return Promise.resolve(false);
         clearTimeout(saveTimer);
         saveTimer = null;
         if (saveInFlight) {
@@ -3130,6 +3179,8 @@
     }
 
     async function saveCurrentNote(keepalive, deferRefresh) {
+        if (!notebookReady()) return false;
+        var context = notebookContext();
         clearTimeout(saveTimer);
         saveTimer = null;
         var b = book();
@@ -3145,6 +3196,7 @@
         setStatus('保存中…', 'saving');
         try {
             await writeNote(blankState ? EMPTY_STATE_MARKER : md, keepalive);
+            if (!notebookMatches(context)) return true;
             var activeBook = book();
             if (activeBook.user_id !== b.user_id || activeBook.conversation_id !== b.conversation_id) return true;
             if (revision === editorLoadRevision) {
@@ -3158,7 +3210,7 @@
             }
             if (!deferRefresh) {
                 try {
-                    await fetchNotes();
+                    if (!await fetchNotes() || !notebookMatches(context)) return true;
                     var latest = latestState();
                     if (revision === editorLoadRevision) {
                         var matchesSaved = latest && sameMd(stateContent(latest), md);
@@ -3170,12 +3222,14 @@
                     }
                     renderSide();
                 } catch (readError) {
+                    if (!notebookMatches(context)) return true;
                     if (!keepalive) toast('笔记已保存，历史列表暂未更新：' + readError.message, true);
                 }
             }
             showIdleStatus();
             return true;
         } catch (e) {
+            if (!notebookMatches(context)) return false;
             setStatus('保存失败', 'error');
             if (!keepalive) toast('保存失败：' + e.message, true);
             return false;
@@ -3244,6 +3298,7 @@
     }
 
     function loadFromHistory(idx) {
+        if (!notebookReady()) return;
         clearTimeout(saveTimer);
         saveTimer = null;
         var note = notes[idx];
@@ -3280,6 +3335,8 @@
 
     // 「还原」= 把这一版重新发送一次，成为最新版本（MemOS 无法删改消息，只能追加）
     async function restoreNote(idx) {
+        if (!notebookReady()) return;
+        var context = notebookContext();
         if (busy || saveInFlight) { toast('当前操作尚未完成，请稍后再还原', true); return; }
         var n = notes[idx];
         var kind = n ? kindOf(n.text) : '';
@@ -3292,7 +3349,7 @@
         try {
             var payload = kind === 'blank' ? EMPTY_STATE_MARKER : n.text;
             await writeNote(payload, false);
-            await fetchNotes();
+            if (!notebookMatches(context) || !await fetchNotes() || !notebookMatches(context)) return;
             var latest = latestState();
             if (!latest || (kind === 'blank' ? kindOf(latest.text) !== 'blank' : latest.text !== n.text)) {
                 throw new Error('接口已接收写入，但最新历史尚未读回该版本；请稍后刷新确认');
@@ -3303,6 +3360,7 @@
             setStatus(savedLabel(), 'saved');
             toast('已还原并重新发送为最新版本');
         } catch (e) {
+            if (!notebookMatches(context)) return;
             setStatus('还原失败', 'error');
             toast('还原失败：' + e.message, true);
         } finally {
@@ -3331,18 +3389,28 @@
     }
 
     async function refresh(silent) {
+        var context = notebookContext();
         if (saveInFlight) await saveInFlight;
-        if (busy) return;
+        if (!notebookMatches(context)) return false;
+        if (busy) { refreshQueued = true; return false; }
         setBusy(true);
         setStatus('读取中…');
         try {
             // 用户清空了已有笔记后点刷新，应先把明确的空白状态写到服务器，
             // 否则服务器最新版本仍是旧正文，刷新会把它重新载入。
-            var blankNeedsSave = lastSavedMd !== null && !currentMd().trim() &&
+            var blankNeedsSave = notebookReady() && lastSavedMd !== null && !currentMd().trim() &&
                 (!lastSavedIsBlankState || !sameMd(currentMd(), lastSavedMd));
             if (blankNeedsSave && !await doSave(false, true)) return;
-            await fetchNotes();
-            var r = syncEditorFromServer();
+            if (!notebookMatches(context) || !await fetchNotes() || !notebookMatches(context)) return false;
+            var r;
+            if (!notebookReady()) {
+                var last = latestState();
+                loadIntoEditor(last ? last.text : '', last ? last.t : 0);
+                activeNotebook = context;
+                syncEditorModeUI();
+                loadedIdx = last ? notes.lastIndexOf(last) : -1;
+                r = last ? 'synced' : 'empty';
+            } else r = syncEditorFromServer();
             renderSide();
             if (r === 'dirty') showIdleStatus();
             else setStatus(syncedLabel(), 'saved');
@@ -3351,9 +3419,12 @@
                 else if (r === 'synced') toast('已刷新，编辑纸张已同步到最新');
                 else toast('已刷新');
             }
+            return true;
         } catch (e) {
+            if (!notebookMatches(context)) return false;
             setStatus('读取失败', 'error');
             if (!silent) toast('读取失败：' + e.message, true);
+            return false;
         } finally {
             setBusy(false);
         }
@@ -3610,7 +3681,7 @@
             syncAudioPlayers();
             startMusicTrack(next, true, true);
         } else {
-            musicMessage = '没有可播放的音乐，请点击播放重试或修改地址';
+            musicMessage = message + ' · 没有其他可播放的音乐，请点击播放重试或修改地址';
             syncAudioPlayers();
         }
     }
@@ -5839,16 +5910,21 @@
         ['apiKey', 'bookId', 'userId'].forEach(function (id) {
             $(id).addEventListener('change', function () {
                 saveSettings();
-                lastSavedMd = null;
-                lastSavedIsBlankState = false;
+                notebookRevision++;
+                notesRequestId++;
+                clearTimeout(saveTimer);
+                saveTimer = null;
+                stopAudioPlayback();
+                lastEditorRange = null;
+                selectedHistoryState = null;
                 historyNeedsSave = false;
+                notes = []; live = []; loadedIdx = -1;
                 $('bookLabel').textContent = $('bookId').value.trim();
-                refresh(true).then(function () {
-                    // 纸张由 refresh 同步到新本子的最新一条；新本子是空的就清空纸张，
-                    // 否则会把上一个本子的内容留在编辑区里。
-                    if (!latestState()) { loadIntoEditor(''); loadedIdx = -1; }
-                    renderSide();
-                });
+                syncEditorModeUI();
+                $('saveBtn').disabled = true;
+                renderSide();
+                setStatus('读取中…');
+                refresh(true);
             });
         });
 
@@ -5916,20 +5992,9 @@
         $('bookLabel').textContent = $('bookId').value.trim();
         bind();
         bindAudioPlayers();
-        setEditorMode('read');
+        syncEditorModeUI();
         setStatus('读取中…');
-        refresh(true).then(function () {
-            var last = latestState();
-            if (last) {
-                loadIntoEditor(last.text, last.t);
-                loadedIdx = notes.lastIndexOf(last);
-            } else {
-                loadIntoEditor('');
-            }
-            renderSide();
-            setStatus(syncedLabel(), 'saved');
-            // 初次打开保持只读，不自动聚焦；通过模式按钮进入编辑。
-        });
+        refresh(true);
         // 访问上报独立走：不占用 busy 锁、失败静默，绝不干扰笔记本身的读写
         reportVisit();
     }
