@@ -867,6 +867,51 @@
     .sheet-body code { background: #14202b; border-radius: 4px; padding: 1px 5px; font-family: monospace; font-size: 0.85em; }
     .sheet-body strong { color: #fff; }
 
+    /* 音乐控件不参与正文编辑，所有播放状态只存在页面内。 */
+    .md-audio {
+        max-width: 540px;
+        width: 100%;
+        margin: 0.8em 0;
+        padding: 9px 11px;
+        background: #0d1922;
+        border: 1px solid #243d4b;
+        border-radius: 9px;
+        font: 0.74rem/1.5 system-ui, sans-serif;
+        text-align: left;
+        user-select: none;
+    }
+    .audio-ui { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
+    .audio-ui button { padding: 3px 7px; min-height: 27px; border-radius: 5px; background: transparent; border-color: transparent; font-size: 0.68rem; }
+    .audio-ui button:hover { background: #17313e; border-color: #34667b; }
+    .audio-ui .audio-play { color: #83d9ee; width: 29px; padding: 3px; font-size: 0.86rem; flex-shrink: 0; }
+    .audio-heading { display: flex; align-items: center; gap: 6px; flex: 1 1 100px; min-width: 0; }
+    .audio-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #dceef7; }
+    .audio-time { color: #80a3b5; font: 0.64rem/1.5 ui-monospace, Consolas, monospace; white-space: nowrap; }
+    .audio-seek { flex: 1 1 100px; width: 100px; min-width: 45px; height: 18px; margin: 0; padding: 0; accent-color: #62cce6; cursor: pointer; }
+    .audio-seek:disabled { opacity: 0.35; cursor: default; }
+    .audio-mode { color: #83b6cb; white-space: nowrap; }
+    .audio-status { flex: 0 0 auto; min-width: 0; max-width: 65%; padding: 1px 4px; border-radius: 4px; background: rgba(98, 204, 230, 0.1); color: #83bbc9; font-size: 0.6rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .audio-status:empty { display: none; }
+    .md-audio[data-audio-state="playing"] { border-color: #3f8296; }
+    .md-audio[data-audio-state="error"] .audio-status { color: #e8ad9d; background: rgba(232, 173, 157, 0.1); }
+    .md-audio[data-audio-state="blocked"] .audio-status { color: #d8c18b; background: rgba(216, 193, 139, 0.1); }
+    .editor.read-only .audio-edit { display: none; }
+    @media (max-width: 540px) {
+        .audio-heading { flex-basis: calc(100% - 50px); }
+        .audio-seek { flex-grow: 1; }
+    }
+
+    .link-dialog[hidden] { display: none; }
+    .link-dialog { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.62); }
+    .link-form { width: 380px; max-width: 100%; max-height: 85dvh; overflow-y: auto; padding: 19px; border: 1px solid #2c5266; border-radius: 12px; background: #0d1620; box-shadow: 0 18px 60px #0008; }
+    .link-form h2 { font-size: 0.9rem; font-weight: 500; color: #bce6ef; margin-bottom: 14px; }
+    .link-form label { display: block; color: #8faebb; font-size: 0.72rem; margin: 11px 0 5px; }
+    .link-form input, .link-form select { display: block; width: 100%; min-height: 34px; padding: 7px 9px; border: 1px solid #2a4251; border-radius: 6px; color: #dcecf5; background: #060d14; font-family: inherit; font-size: 0.76rem; line-height: 1.4; }
+    .link-form select:disabled { opacity: 0.6; }
+    .link-error { color: #edb2a2; font-size: 0.72rem; margin-top: 10px; }
+    .link-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 17px; }
+    .link-actions button { border-radius: 6px; padding: 6px 13px; }
+
     /* ---------- 访问记录列表 ---------- */
     .log-stat {
         color: #7fd0dd; font-size: 0.76rem; margin-bottom: 10px;
@@ -1130,6 +1175,20 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="link-dialog" id="linkDialog" role="dialog" aria-modal="true" aria-labelledby="linkDialogTitle" hidden>
+    <form class="link-form" id="linkForm">
+        <h2 id="linkDialogTitle">插入链接</h2>
+        <label for="linkKind">显示方式</label>
+        <select id="linkKind"><option value="link">普通链接</option><option value="audio">音乐播放器</option></select>
+        <label for="linkText">名称</label>
+        <input id="linkText" type="text" autocomplete="off" placeholder="链接名称">
+        <label for="linkUrl">地址</label>
+        <input id="linkUrl" type="text" inputmode="url" autocomplete="off" placeholder="https://" required>
+        <p class="link-error" id="linkError" role="alert" hidden></p>
+        <div class="link-actions"><button id="linkCancel" type="button">取消</button><button id="linkSubmit" type="submit">插入</button></div>
+    </form>
+</div>
+
 <script>
 (function () {
     'use strict';
@@ -1215,6 +1274,89 @@
         var value = String(raw || '').trim();
         if (/^(https?:|mailto:)/i.test(value) || /^(#|\/|\.\/|\.\.\/)/.test(value)) return value;
         return '';
+    }
+
+    // 音乐仅保存 HTTP(S) 直链；保留原地址写法，避免改写签名参数。
+    function audioUrl(raw) {
+        var value = String(raw == null ? '' : raw).trim();
+        if (!/^https?:\/\//i.test(value) || /[\u0000-\u0020\u007f]/.test(value)) return '';
+        try {
+            var parsed = new URL(value);
+            return /^(http:|https:)$/.test(parsed.protocol) && parsed.hostname ? value : '';
+        } catch (error) { return ''; }
+    }
+
+    function audioMarkdown(title, url) {
+        var source = audioUrl(url);
+        if (!source) return '';
+        var label = String(title == null ? '' : title).replace(/[\r\n]+/g, ' ')
+            .replace(/[\\[\]()]/g, function (ch) { return '\\' + ch; });
+        source = source.replace(/[\\()]/g, function (ch) { return '\\' + ch; });
+        return '[' + label + '](' + source + '){audio}';
+    }
+
+    function parseAudioLine(line) {
+        var source = String(line).replace(/^[ \t]+|[ \t]+$/g, '');
+        var suffix = '){audio}';
+        if (/[\r\n]/.test(source) || source.charAt(0) !== '[' || source.slice(-suffix.length) !== suffix) return null;
+        var title = '', depth = 1, i = 1;
+        for (; i < source.length; i++) {
+            var ch = source.charAt(i), next = source.charAt(i + 1);
+            if (ch === '\\' && /[\\[\]()]/.test(next) && next) { title += next; i++; continue; }
+            if (ch === '[') depth++;
+            else if (ch === ']') { depth--; if (!depth) break; }
+            title += ch;
+        }
+        if (depth !== 0 || source.charAt(i + 1) !== '(') return null;
+        var raw = source.slice(i + 2, -suffix.length).replace(/\\([\\[\]()])/g, '$1');
+        var url = audioUrl(raw);
+        return url ? { title: title, url: url } : null;
+    }
+
+    function audioUiHtml(title) {
+        return '<div class="audio-ui" data-md-audio-ui>' +
+            '<button class="audio-play" data-audio-action="play" type="button" aria-label="播放">▶</button>' +
+            '<span class="audio-heading"><span class="audio-name" data-audio-name>' + esc(title || '音乐') + '</span>' +
+            '<span class="audio-status" data-audio-status aria-live="polite"></span></span>' +
+            '<span class="audio-time" data-audio-time>00:00 / --:--</span>' +
+            '<input class="audio-seek" data-audio-seek type="range" min="0" max="1000" step="1" value="0" disabled aria-label="播放进度">' +
+            '<button class="audio-mode" data-audio-action="mode" type="button">顺序</button>' +
+            '<button class="audio-edit" data-audio-action="edit" type="button">修改</button>' +
+            '<button class="audio-edit" data-audio-action="delete" type="button">删除</button></div>';
+    }
+
+    function audioBlockHtml(title, url) {
+        var source = audioUrl(url);
+        if (!source) return '';
+        title = String(title == null ? '' : title).replace(/[\r\n]+/g, ' ');
+        return '<div class="md-audio" data-md-audio data-audio-title="' + escAttr(esc(title)) +
+            '" data-audio-src="' + escAttr(esc(source)) + '" contenteditable="false" draggable="false">' + audioUiHtml(title) + '</div>';
+    }
+
+    // 仅用于编辑副本/历史快照：播放时间、按钮状态等不构成正文改动。
+    function normalizeAudioBlocks(root) {
+        var blocks = Array.prototype.slice.call(root.querySelectorAll('[data-md-audio]'));
+        if (root.matches && root.matches('[data-md-audio]')) blocks.unshift(root);
+        blocks.forEach(function (block) {
+            var ui = block.querySelector('[data-md-audio-ui]'), before = [], after = [];
+            Array.prototype.forEach.call(block.querySelectorAll('[data-md-caret]'), function (marker) {
+                var inUi = ui && ui.contains(marker);
+                var atStart = inUi ? /-start$/.test(marker.getAttribute('data-md-caret') || '') :
+                    !!ui && !!(marker.compareDocumentPosition(ui) & Node.DOCUMENT_POSITION_FOLLOWING);
+                (atStart ? before : after).push(marker);
+                marker.remove();
+            });
+            Array.prototype.slice.call(block.attributes).forEach(function (attr) {
+                if (attr.name.indexOf('data-audio-') === 0 && attr.name !== 'data-audio-title' && attr.name !== 'data-audio-src') block.removeAttribute(attr.name);
+            });
+            block.className = 'md-audio';
+            block.contentEditable = 'false';
+            block.draggable = false;
+            block.innerHTML = audioUiHtml(block.getAttribute('data-audio-title') || '');
+            var first = block.firstChild;
+            before.forEach(function (marker) { block.insertBefore(marker, first); });
+            after.forEach(function (marker) { block.appendChild(marker); });
+        });
     }
 
     // 图片宽度只有整数像素这一种形式，DOM 和 Markdown 共用同一白名单。
@@ -1346,7 +1488,7 @@
     function isBlockStart(line) {
         // [-*+] / \d+[.)] 后面允许直接是行尾：空列表项（单独一行「-」）也要算块起点
         return /^\s*(#{1,6}\s|>|[-*+](?:\s|$)|\d+[.)](?:\s|$)|```)/.test(line) ||
-               /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line) || !!mdLayoutStart(line);
+               /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line) || !!mdLayoutStart(line) || !!parseAudioLine(line);
     }
 
     // 增强 Markdown 只接受这四种布局，原文与历史记录仍保存为可阅读的纯文本。
@@ -1526,7 +1668,7 @@
             var li = lis[k];
             // 任务项是合法内容（'- [ ]' 本身就有意义），哪怕文字是空的也不算空列表
             if (li.getAttribute && li.getAttribute('data-task')) return false;
-            if (li.querySelector && li.querySelector('ul,ol,img,pre,table,hr')) return false;
+            if (li.querySelector && li.querySelector('ul,ol,img,pre,table,hr,[data-md-audio]')) return false;
             if (li.textContent.replace(/\u200b/g, '').trim()) return false;
         }
         return true;
@@ -1608,6 +1750,14 @@
 
             // 空行
             if (!line.trim()) { closeAll(); pendingBlank++; continue; }
+
+            var music = parseAudioLine(line);
+            if (music) {
+                flushBlank();
+                closeAll();
+                html.push(audioBlockHtml(music.title, music.url));
+                continue;
+            }
 
             // GFM 表格
             if (line.indexOf('|') >= 0 && i + 1 < lines.length) {
@@ -1723,6 +1873,7 @@
     // 所以必须在元素本身识别 strong/code 等标签；只遍历它的子节点会丢掉包裹标记。
     function nodeToMd(node) {
         if (node.hasAttribute('data-md-caret')) return '';
+        if (node.hasAttribute('data-md-audio')) return audioMarkdown(node.getAttribute('data-audio-title'), node.getAttribute('data-audio-src'));
         if (mdLayoutType(node.getAttribute('data-md-layout'))) return layoutToMd(node);
         var tag = node.tagName.toLowerCase();
         if (tag === 'img') {
@@ -1825,19 +1976,20 @@
         var out = [];
 
         function emitBlock(el) {
+            if (el.hasAttribute('data-md-audio')) { out.push(nodeToMd(el)); return; }
             if (mdLayoutType(el.getAttribute('data-md-layout'))) { out.push(layoutToMd(el)); return; }
             var tag = el.tagName.toLowerCase();
             if (/^h[1-6]$/.test(tag)) {
                 // 空标题 = 不是内容。在标题最前面按回车时浏览器会造一个 <h1><br></h1>，
                 // 若照常序列化成一行 '#'，重开后会被当成普通段落（正文里凭空多出个 #）。
                 // 所以降级成空块 —— 和空段落一个待遇，变成用户留的那行白。
-                if (!el.textContent.trim() && !el.querySelector('img')) { out.push(''); return; }
+                if (!el.textContent.trim() && !el.querySelector('img,[data-md-audio]')) { out.push(''); return; }
                 out.push(new Array(Number(tag[1]) + 1).join('#') + ' ' + inlineToMd(el).trim());
                 return;
             }
             if (tag === 'p') {
                 // 占位的尾段落（ensureTail 补的）不算内容，否则每次编辑都会多出一行空白
-                if (el.getAttribute && el.getAttribute('data-tail') === '1' && !el.textContent.trim()) return;
+                if (el.getAttribute && el.getAttribute('data-tail') === '1' && !el.textContent.trim() && !el.querySelector('[data-md-audio]')) return;
                 out.push(inlineToMd(el).replace(/\s+$/, ''));
                 return;
             }
@@ -1879,7 +2031,7 @@
                 var qInline = inlineToMd(el).trim();
                 // 空引用（在引用最前面按回车时浏览器会造一个空 <blockquote>）→ 不是内容，
                 // 降级成空块，别在 md 里留下一个孤零零的 '>'（重开会变成空引用）
-                if (!qInline && !el.querySelector('img,pre,table,hr')) { out.push(''); return; }
+                if (!qInline && !el.querySelector('img,pre,table,hr,[data-md-audio]')) { out.push(''); return; }
                 out.push('> ' + qInline.replace(/\n/g, '\n> '));
                 return;
             }
@@ -2817,7 +2969,7 @@
 
     function syncEmpty() {
         var txt = editor.textContent.replace(/\u200b/g, '');
-        var hasBlock = editor.querySelector('img,hr,pre,table,ul,ol,blockquote');
+        var hasBlock = editor.querySelector('img,hr,pre,table,ul,ol,blockquote,[data-md-audio]');
         editor.classList.toggle('is-empty', !txt.trim() && !hasBlock);
     }
 
@@ -2829,7 +2981,7 @@
         var last = editor.lastElementChild;
         if (!last) return;
         var tag = last.tagName.toLowerCase();
-        if ((tag === 'p' || tag === 'div') && !last.hasAttribute('data-md-layout')) return;
+        if ((tag === 'p' || tag === 'div') && !last.hasAttribute('data-md-layout') && !last.hasAttribute('data-md-audio')) return;
         var p = document.createElement('p');
         p.appendChild(document.createElement('br'));
         p.setAttribute('data-tail', '1');
@@ -2840,6 +2992,7 @@
     // savedAt 用「这一版在服务器上的写入时间」，这样刚打开页面时状态栏显示的就是
     // 「已保存 2026-09-29 13:53:03」而不是误报未保存。
     function loadIntoEditor(md, savedAt) {
+        stopAudioPlayback();
         clearTimeout(saveTimer);
         saveTimer = null;
         lastEditorRange = null;
@@ -2860,6 +3013,7 @@
         syncTableBar();
         renderOutline();
         resetEditorHistory();
+        syncAudioPlayers();
     }
 
     function currentMd() {
@@ -2915,6 +3069,7 @@
         editorMode = next;
         rawMode = next === 'raw';
         if (sourceChanged) {
+            stopAudioPlayback();
             lastEditorRange = null;
             rawBox.value = md;
             editor.innerHTML = md ? md2html(md) : '';
@@ -2925,6 +3080,7 @@
         showIdleStatus();
         renderOutline();
         if (sourceChanged) resetEditorHistory();
+        syncAudioPlayers();
         $('docWrap').scrollTop = scrollTop;
     }
 
@@ -3203,6 +3359,535 @@
         }
     }
 
+    /* ================= 音乐播放与本页缓存 ================= */
+
+    var musicCache = new Map(), musicCacheBytes = 0;
+    var MUSIC_CACHE_BUDGET = 100 * 1024 * 1024;
+    var musicPlayer = null, musicCleanup = null, musicPending = null;
+    var musicCurrent = null, musicCurrentUrl = '', musicObjectUrl = '';
+    var musicPhase = 'idle', musicMessage = '', musicProgress = '';
+    var musicGeneration = 0, musicMode = 'order', musicRandomBag = [], musicSeekDragging = null;
+    var musicFailures = new Map(), musicHandledFailureGeneration = -1;
+    var linkDialogContext = null;
+
+    function isAudioUiTarget(target) {
+        var el = target && (target.nodeType === 1 ? target : target.parentElement);
+        return !!(el && el.closest && el.closest('[data-md-audio-ui]'));
+    }
+
+    function musicTracks() {
+        return Array.prototype.filter.call(editor.querySelectorAll('[data-md-audio]'), function (block) {
+            return !!audioUrl(block.getAttribute('data-audio-src'));
+        });
+    }
+
+    function musicTime(value) {
+        if (!isFinite(value) || value < 0) return '--:--';
+        value = Math.floor(value);
+        return (value >= 3600 ? Math.floor(value / 3600) + ':' : '') +
+            String(Math.floor(value / 60) % 60).padStart(2, '0') + ':' + String(value % 60).padStart(2, '0');
+    }
+
+    function touchMusicCache(url) {
+        var entry = musicCache.get(url);
+        if (entry) { musicCache.delete(url); musicCache.set(url, entry); }
+        return entry;
+    }
+
+    function trimMusicCache(protectedUrl) {
+        // 已完成缓存的软预算；当前音频可暂时超过预算，切走后优先释放。
+        var keys = Array.from(musicCache.keys());
+        for (var i = 0; musicCacheBytes > MUSIC_CACHE_BUDGET && i < keys.length; i++) {
+            var url = keys[i];
+            if (url === protectedUrl || url === musicCurrentUrl) continue;
+            var entry = musicCache.get(url);
+            musicCache.delete(url);
+            musicCacheBytes -= entry.size;
+            URL.revokeObjectURL(entry.objectUrl);
+        }
+    }
+
+    function clearMusicSource() {
+        if (musicCleanup) { musicCleanup(); musicCleanup = null; }
+        if (musicPlayer) {
+            musicPlayer.pause();
+            musicPlayer.removeAttribute('src');
+            musicPlayer.load();
+        }
+        musicObjectUrl = '';
+    }
+
+    function cancelMusicDownload(keepUrl) {
+        var task = musicPending;
+        if (task && task.url !== keepUrl) {
+            task.controller.abort();
+            if (musicPending === task) musicPending = null;
+        }
+    }
+
+    function stopAudioPlayback() {
+        musicGeneration++;
+        cancelMusicDownload('');
+        clearMusicSource();
+        musicCurrent = null;
+        musicCurrentUrl = '';
+        musicPhase = 'idle';
+        musicMessage = musicProgress = '';
+        musicRandomBag = [];
+        musicFailures.clear();
+        musicHandledFailureGeneration = -1;
+        musicSeekDragging = null;
+        trimMusicCache('');
+        syncAudioPlayers();
+    }
+
+    function syncAudioPlayers() {
+        if (musicCurrent && (rawMode || !editor.contains(musicCurrent) ||
+            audioUrl(musicCurrent.getAttribute('data-audio-src')) !== musicCurrentUrl)) {
+            stopAudioPlayback();
+            return;
+        }
+        function textAt(block, selector, value) {
+            var el = block.querySelector(selector);
+            if (el && el.textContent !== value) el.textContent = value;
+        }
+        musicTracks().forEach(function (block) {
+            var active = block === musicCurrent, entry = musicCache.get(block.getAttribute('data-audio-src'));
+            var failure = musicFailures.get(block.getAttribute('data-audio-src'));
+            var playing = active && musicPhase === 'playing';
+            var loading = active && musicPhase === 'loading';
+            var state = active ? musicPhase : (failure ? 'error' : (entry ? 'cached' : 'idle'));
+            if (block.getAttribute('data-audio-state') !== state) block.setAttribute('data-audio-state', state);
+            textAt(block, '[data-audio-action="play"]', loading ? '…' : (playing ? '❚❚' : '▶'));
+            var play = block.querySelector('[data-audio-action="play"]');
+            if (play) {
+                play.setAttribute('aria-label', loading ? '正在下载' : (playing ? '暂停' : (failure ? '重试播放' : '播放')));
+                play.setAttribute('aria-busy', loading ? 'true' : 'false');
+            }
+            var modeName = { order: '顺序', random: '随机', single: '单曲循环' }[musicMode];
+            textAt(block, '[data-audio-action="mode"]', modeName);
+            var mode = block.querySelector('[data-audio-action="mode"]');
+            if (mode) mode.title = '播放模式：' + modeName + '，点击切换';
+            var duration = active && musicPlayer ? musicPlayer.duration : (entry && entry.duration);
+            var validDuration = isFinite(duration) && duration > 0;
+            var currentTime = active && musicPlayer && musicObjectUrl ? musicPlayer.currentTime : 0;
+            textAt(block, '[data-audio-time]', musicTime(currentTime) + ' / ' + (validDuration ? musicTime(duration) : '--:--'));
+            var seek = block.querySelector('[data-audio-seek]');
+            if (seek) {
+                seek.disabled = !active || loading || !musicObjectUrl || !validDuration || musicPhase === 'error';
+                if (musicSeekDragging !== block) seek.value = validDuration ? String(Math.round(Math.min(1, currentTime / duration) * 1000)) : '0';
+                seek.setAttribute('aria-valuetext', musicTime(currentTime) + ' / ' + (validDuration ? musicTime(duration) : '--:--'));
+            }
+            var statusText = active && loading ? musicProgress :
+                (active && (musicPhase === 'error' || musicPhase === 'blocked') ? musicMessage :
+                    (failure ? failure.message + (failure.skipped ? ' · 已跳过，点击播放重试' : ' · 点击播放重试') : (entry ? '已缓存' : '')));
+            textAt(block, '[data-audio-status]', statusText);
+            var statusLabel = block.querySelector('[data-audio-status]');
+            if (statusLabel && statusLabel.title !== statusText) statusLabel.title = statusText;
+        });
+    }
+
+    function downloadMusic(url) {
+        var cached = touchMusicCache(url);
+        if (cached) return Promise.resolve(cached);
+        if (musicPending && musicPending.url === url && !musicPending.controller.signal.aborted) return musicPending.promise;
+        cancelMusicDownload(url);
+        var task = { url: url, controller: new AbortController(), promise: null };
+        musicPending = task;
+        task.promise = (async function () {
+            var response = await fetch(url, { signal: task.controller.signal, mode: 'cors', credentials: 'omit' });
+            if (!response.ok) throw new Error('下载失败（HTTP ' + response.status + '）');
+            if (response.status === 206) throw new Error('音频地址只返回了部分文件，请更换完整音频直链');
+            if (response.type === 'opaque') throw new Error('音频地址未允许跨域下载');
+            var total = Number(response.headers.get('content-length')) || 0, loaded = 0, blob, lastProgress = 0;
+            function progress() {
+                if (musicPending !== task || musicCurrentUrl !== url || musicPhase !== 'loading') return;
+                var now = Date.now();
+                if (now - lastProgress < 100) return;
+                lastProgress = now;
+                musicProgress = total > 0 ? '下载中 ' + Math.min(99, Math.floor(loaded / total * 100)) + '%' :
+                    '下载中 ' + (loaded / 1048576).toFixed(1) + ' MB';
+                syncAudioPlayers();
+            }
+            if (response.body && response.body.getReader) {
+                var reader = response.body.getReader(), chunks = [];
+                while (true) {
+                    var chunk = await reader.read();
+                    if (chunk.done) break;
+                    if (task.controller.signal.aborted) throw new DOMException('下载已取消', 'AbortError');
+                    chunks.push(chunk.value); loaded += chunk.value.byteLength; progress();
+                }
+                blob = new Blob(chunks, { type: (response.headers.get('content-type') || '').split(';')[0] });
+            } else {
+                blob = await response.blob();
+            }
+            if (task.controller.signal.aborted) throw new DOMException('下载已取消', 'AbortError');
+            if (!blob.size) throw new Error('音频文件为空');
+            var entry = { blob: blob, objectUrl: URL.createObjectURL(blob), size: blob.size, duration: 0 };
+            musicCache.set(url, entry); musicCacheBytes += entry.size;
+            trimMusicCache(url);
+            return entry;
+        })().finally(function () { if (musicPending === task) musicPending = null; });
+        return task.promise;
+    }
+
+    function shuffleMusic(tracks) {
+        for (var i = tracks.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1)), swap = tracks[i]; tracks[i] = tracks[j]; tracks[j] = swap;
+        }
+        return tracks;
+    }
+
+    function uniqueMusicTracks() {
+        var seen = new Set();
+        return musicTracks().filter(function (block) {
+            var url = block.getAttribute('data-audio-src');
+            if (seen.has(url)) return false;
+            seen.add(url); return true;
+        });
+    }
+
+    function resetRandomMusic() {
+        musicRandomBag = shuffleMusic(uniqueMusicTracks().filter(function (block) {
+            var url = block.getAttribute('data-audio-src');
+            return url !== musicCurrentUrl && !musicFailures.has(url);
+        }));
+    }
+
+    function nextMusicTrack() {
+        var tracks = musicTracks();
+        if (!tracks.length) return null;
+        function playable(block) { return !musicFailures.has(block.getAttribute('data-audio-src')); }
+        if (musicMode === 'single') return musicCurrent && playable(musicCurrent) ? musicCurrent : null;
+        if (musicMode === 'order') {
+            var start = tracks.indexOf(musicCurrent);
+            for (var i = 1; i <= tracks.length; i++) {
+                var next = tracks[(start + i) % tracks.length];
+                if (playable(next)) return next;
+            }
+            return null;
+        }
+        var allUnique = uniqueMusicTracks(), unique = allUnique.filter(playable);
+        if (!unique.length) return null;
+        // 原本有多首、现只剩一首可用时，继续播放这一首，避免反复请求失效地址。
+        if (unique.length < 2) return allUnique.length > 1 ? unique[0] : null;
+        musicRandomBag = musicRandomBag.filter(function (block) { return unique.indexOf(block) >= 0; });
+        if (!musicRandomBag.length) {
+            musicRandomBag = shuffleMusic(unique.slice());
+            // 新一轮的第一首不紧接着重复上一首。
+            if (musicRandomBag[musicRandomBag.length - 1].getAttribute('data-audio-src') === musicCurrentUrl) {
+                var swap = musicRandomBag[0];
+                musicRandomBag[0] = musicRandomBag[musicRandomBag.length - 1];
+                musicRandomBag[musicRandomBag.length - 1] = swap;
+            }
+        }
+        return musicRandomBag.pop();
+    }
+
+    function handleMusicFailure(error, generation, block) {
+        if (generation !== musicGeneration || musicCurrent !== block || !editor.contains(block) || rawMode ||
+            musicHandledFailureGeneration === generation) return;
+        if (error.name === 'AbortError') { musicPhase = 'paused'; syncAudioPlayers(); return; }
+        if (error.name === 'NotAllowedError') {
+            musicPhase = 'blocked'; musicMessage = '已下载，点击播放继续'; syncAudioPlayers(); return;
+        }
+        // 媒体 error 与 play() 拒绝可能同时出现，一次播放尝试只跳过一次。
+        musicHandledFailureGeneration = generation;
+        var url = musicCurrentUrl;
+        var message = error.name === 'NotSupportedError' ? '无法播放此音频格式，请更换地址' :
+            (error instanceof TypeError ? '下载失败，请检查网络及音频地址是否允许跨域下载' : (error.message || '音频播放失败'));
+        musicFailures.set(url, { message: message, skipped: musicMode !== 'single' });
+        clearMusicSource();
+        // 解码失败的完整文件也不复用；先断开播放器，再释放该缓存。
+        var entry = musicCache.get(url);
+        if (entry) {
+            musicCache.delete(url); musicCacheBytes -= entry.size; URL.revokeObjectURL(entry.objectUrl);
+        }
+        musicPhase = 'error'; musicMessage = message + ' · 点击播放重试';
+        if (musicMode === 'single') { syncAudioPlayers(); return; }
+        var next = nextMusicTrack();
+        if (next) {
+            syncAudioPlayers();
+            startMusicTrack(next, true, true);
+        } else {
+            musicMessage = '没有可播放的音乐，请点击播放重试或修改地址';
+            syncAudioPlayers();
+        }
+    }
+
+    function bindMusicSource(block, entry, generation) {
+        if (musicCleanup) musicCleanup();
+        var player = musicPlayer, listeners = [];
+        function valid() { return generation === musicGeneration && musicCurrent === block && editor.contains(block) && !rawMode && musicObjectUrl === entry.objectUrl; }
+        function on(name, fn) {
+            var handler = function () { if (valid()) fn(); };
+            player.addEventListener(name, handler); listeners.push([name, handler]);
+        }
+        on('timeupdate', syncAudioPlayers);
+        on('durationchange', function () { if (isFinite(player.duration)) entry.duration = player.duration; syncAudioPlayers(); });
+        on('loadedmetadata', function () { entry.duration = player.duration; syncAudioPlayers(); });
+        on('playing', function () { if (!player.paused) { musicPhase = 'playing'; musicMessage = ''; syncAudioPlayers(); } });
+        on('pause', function () { if (player.paused && musicPhase === 'playing' && !player.ended) { musicPhase = 'paused'; syncAudioPlayers(); } });
+        on('ended', function () {
+            musicPhase = 'ended';
+            var next = nextMusicTrack();
+            if (next) startMusicTrack(next, true, true);
+            else syncAudioPlayers();
+        });
+        on('error', function () {
+            handleMusicFailure(new Error('无法播放此音频，请检查文件或更换地址'), generation, block);
+        });
+        musicCleanup = function () { listeners.forEach(function (pair) { player.removeEventListener(pair[0], pair[1]); }); };
+    }
+
+    async function startMusicTrack(block, restart, automatic) {
+        if (!block || rawMode || !editor.contains(block)) return;
+        var url = audioUrl(block.getAttribute('data-audio-src'));
+        if (!url) return;
+        if (!automatic) musicFailures.delete(url);
+        var resume = musicCurrent === block && musicCurrentUrl === url && !!musicObjectUrl;
+        var generation = ++musicGeneration;
+        cancelMusicDownload(url);
+        if (!resume) clearMusicSource();
+        musicCurrent = block; musicCurrentUrl = url;
+        trimMusicCache(url);
+        musicPhase = musicCache.has(url) ? 'ready' : 'loading';
+        musicMessage = ''; musicProgress = '下载中…';
+        if (!automatic && musicMode === 'random') resetRandomMusic();
+        syncAudioPlayers();
+        try {
+            var entry = await downloadMusic(url);
+            if (generation !== musicGeneration || musicCurrent !== block || !editor.contains(block) || rawMode) return;
+            if (!musicPlayer) { musicPlayer = document.createElement('audio'); musicPlayer.preload = 'none'; }
+            musicObjectUrl = entry.objectUrl;
+            if (!resume || musicPlayer.getAttribute('src') !== entry.objectUrl) {
+                musicPlayer.src = entry.objectUrl;
+                musicPlayer.load();
+            }
+            musicPlayer.loop = musicMode === 'single';
+            bindMusicSource(block, entry, generation);
+            if (restart && isFinite(musicPlayer.duration)) musicPlayer.currentTime = 0;
+            musicPhase = 'ready'; syncAudioPlayers();
+            await musicPlayer.play();
+            if (generation !== musicGeneration || musicHandledFailureGeneration === generation) return;
+            musicPhase = musicPlayer.paused ? 'paused' : 'playing'; musicMessage = ''; syncAudioPlayers();
+        } catch (error) {
+            handleMusicFailure(error, generation, block);
+        }
+    }
+
+    function toggleMusic(block) {
+        if (block === musicCurrent && musicPhase === 'loading') return;
+        if (block === musicCurrent && musicPlayer && !musicPlayer.paused && musicPhase === 'playing') {
+            musicGeneration++;
+            if (musicCleanup) { musicCleanup(); musicCleanup = null; }
+            musicPlayer.pause(); musicPhase = 'paused'; syncAudioPlayers();
+        } else startMusicTrack(block, block !== musicCurrent || musicPhase === 'ended', false);
+    }
+
+    function changeMusicMode() {
+        var modes = ['order', 'random', 'single'];
+        musicMode = modes[(modes.indexOf(musicMode) + 1) % modes.length];
+        if (musicPlayer) musicPlayer.loop = musicMode === 'single';
+        if (musicMode === 'random') resetRandomMusic();
+        syncAudioPlayers();
+    }
+
+    function seekMusic(input, block) {
+        if (block !== musicCurrent || !musicPlayer || !musicObjectUrl || input.disabled ||
+            !isFinite(musicPlayer.duration) || musicPlayer.duration <= 0) return;
+        musicPlayer.currentTime = Math.max(0, Math.min(1, Number(input.value) / 1000)) * musicPlayer.duration;
+        syncAudioPlayers();
+    }
+
+    function openLinkDialog(block) {
+        if (isReadOnly()) return;
+        rememberEditorSelection();
+        var sel = window.getSelection(), range = null;
+        if (!rawMode && sel.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode) && !isAudioUiTarget(sel.anchorNode)) range = sel.getRangeAt(0).cloneRange();
+        else if (!rawMode && lastEditorRange && editor.contains(lastEditorRange.startContainer)) range = lastEditorRange.cloneRange();
+        var selected = rawMode ? rawBox.value.slice(rawBox.selectionStart, rawBox.selectionEnd) :
+            (range ? range.toString() : '');
+        linkDialogContext = { block: block || null, range: range, start: rawBox.selectionStart, end: rawBox.selectionEnd,
+            revision: editorLoadRevision, modeRevision: editorModeRevision, source: rawMode };
+        $('linkKind').value = block ? 'audio' : 'link';
+        $('linkKind').disabled = !!block;
+        $('linkText').placeholder = block ? '歌曲名称' : '链接名称';
+        $('linkUrl').placeholder = block ? 'https://example.com/music.mp3' : 'https://';
+        $('linkText').value = block ? block.getAttribute('data-audio-title') : selected.replace(/[\r\n]+/g, ' ');
+        $('linkUrl').value = block ? block.getAttribute('data-audio-src') : '';
+        $('linkDialogTitle').textContent = block ? '修改音乐' : '插入链接';
+        $('linkSubmit').textContent = block ? '保存' : '插入';
+        $('linkError').hidden = true;
+        $('linkDialog').hidden = false;
+        $('linkUrl').focus();
+    }
+
+    function closeLinkDialog(restoreFocus) {
+        var context = linkDialogContext;
+        linkDialogContext = null;
+        $('linkDialog').hidden = true;
+        if (!restoreFocus || !context || context.revision !== editorLoadRevision || context.modeRevision !== editorModeRevision || isReadOnly()) return;
+        if (context.source) {
+            rawBox.focus({ preventScroll: true });
+            rawBox.setSelectionRange(context.start, context.end);
+        } else {
+            editor.focus({ preventScroll: true });
+            if (context.range && editor.contains(context.range.startContainer) && editor.contains(context.range.endContainer)) {
+                var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(context.range);
+            }
+        }
+    }
+
+    function placeAudioBlock(title, url, context) {
+        var box = document.createElement('div'); box.innerHTML = audioBlockHtml(title, url);
+        var block = box.firstElementChild;
+        if (!block) throw new Error('无效的音频地址');
+        var range = context.range && context.range.cloneRange();
+        if (!range || !editor.contains(range.startContainer) || !editor.contains(range.endContainer)) {
+            range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
+        }
+        function prohibited(node) {
+            var el = node.nodeType === 1 ? node : node.parentElement;
+            return el && el.closest('li,td,th,pre,blockquote,[data-md-audio]');
+        }
+        if (!context.block && (prohibited(range.startContainer) || prohibited(range.endContainer))) {
+            throw new Error('请在普通文字段落中插入音乐');
+        }
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        rememberEditorHistoryBoundary();
+        var before = captureEditorSnapshot();
+        try {
+            if (context.block) {
+                if (!editor.contains(context.block)) throw new Error('音乐已被移除，请重新插入');
+                if (context.block === musicCurrent) stopAudioPlayback();
+                context.block.replaceWith(block);
+            } else {
+                range.deleteContents();
+                var textBlock = blockOf(range.startContainer);
+                if (textBlock && !textBlock.hasAttribute('data-md-layout') && !textBlock.hasAttribute('data-md-cell')) {
+                    var after = document.createRange(); after.selectNodeContents(textBlock);
+                    after.setStart(range.startContainer, range.startOffset);
+                    var remainder = after.extractContents();
+                    var trailing = textBlock.cloneNode(false); trailing.removeAttribute('id');
+                    trailing.removeAttribute('data-tail');
+                    trailing.appendChild(remainder);
+                    if (!trailing.textContent && !trailing.querySelector('img,hr,input,[data-md-audio]')) {
+                        trailing = document.createElement('p'); trailing.innerHTML = '<br>'; trailing.setAttribute('data-tail', '1');
+                    }
+                    textBlock.after(block);
+                    block.after(trailing);
+                    if (!textBlock.textContent && !textBlock.querySelector('img,hr,input')) textBlock.remove();
+                } else range.insertNode(block);
+            }
+            var next = block.nextSibling;
+            if (!next || next.nodeType !== 1 || !/^(P|H[1-6])$/.test(next.tagName)) {
+                next = document.createElement('p'); next.innerHTML = '<br>'; next.setAttribute('data-tail', '1'); block.after(next);
+            }
+            var caret = document.createRange(); caret.selectNodeContents(next); caret.collapse(true);
+            editor.focus({ preventScroll: true }); sel.removeAllRanges(); sel.addRange(caret);
+            ensureTail(); syncEmpty(); rememberEditorSelection(); syncAudioPlayers(); scheduleSave('audio');
+        } catch (error) {
+            restoreEditorSnapshot(before);
+            throw error;
+        }
+    }
+
+    function submitLinkDialog(e) {
+        e.preventDefault();
+        var context = linkDialogContext;
+        function fail(message) { $('linkError').textContent = message; $('linkError').hidden = false; }
+        if (!context || isReadOnly() || context.revision !== editorLoadRevision || context.modeRevision !== editorModeRevision) {
+            fail('正文或编辑模式已变化，请关闭后重新插入'); return;
+        }
+        var audio = $('linkKind').value === 'audio';
+        var title = $('linkText').value.replace(/[\r\n]+/g, ' ').trim() || (audio ? '音乐' : '链接文字');
+        var url = audio ? audioUrl($('linkUrl').value) : safeHref($('linkUrl').value);
+        if (!url) { fail(audio ? '请输入 http 或 https 音频直链' : '请输入有效的链接地址'); return; }
+        try {
+            if (context.source) {
+                var md = audio ? audioMarkdown(title, url) : '[' + title + '](' + url + ')';
+                var start = context.start, end = context.end;
+                if (audio) {
+                    if (start > 0 && rawBox.value.charAt(start - 1) !== '\n') md = '\n' + md;
+                    if (end < rawBox.value.length && rawBox.value.charAt(end) !== '\n') md += '\n';
+                }
+                rawBox.setRangeText(md, start, end, 'end');
+                rawBox.dispatchEvent(new Event('input', { bubbles: true }));
+                closeLinkDialog(false); rawBox.focus({ preventScroll: true });
+            } else if (audio) {
+                placeAudioBlock(title, url, context); closeLinkDialog(false);
+            } else {
+                editor.focus({ preventScroll: true });
+                if (context.range && editor.contains(context.range.startContainer) && editor.contains(context.range.endContainer)) {
+                    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(context.range);
+                } else restoreEditorSelection();
+                if (editorSelectionContainsAudio()) throw new Error('请选择文字添加普通链接；音乐块请使用修改按钮');
+                rememberEditorHistoryBoundary();
+                if (context.range && !context.range.collapsed && title === context.range.toString()) document.execCommand('createLink', false, url);
+                else document.execCommand('insertHTML', false, '<a href="' + escAttr(esc(url)) + '" target="_blank" rel="noreferrer">' + esc(title) + '</a>');
+                ensureTail(); syncEmpty(); scheduleSave(); closeLinkDialog(false);
+            }
+        } catch (error) { fail(error.message || '未能插入，请重新选择位置'); }
+    }
+
+    function bindAudioPlayers() {
+        editor.addEventListener('click', function (e) {
+            if (!isAudioUiTarget(e.target)) return;
+            var target = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+            var button = target && target.closest('button[data-audio-action]');
+            if (!button) return;
+            var block = button.closest('[data-md-audio]'); e.preventDefault();
+            if (!block) return;
+            var action = button.getAttribute('data-audio-action');
+            if (action === 'play') toggleMusic(block);
+            else if (action === 'mode') changeMusicMode();
+            else if (!isReadOnly() && action === 'edit') openLinkDialog(block);
+            else if (!isReadOnly() && action === 'delete') {
+                rememberEditorHistoryBoundary();
+                if (block === musicCurrent) stopAudioPlayback();
+                block.remove(); ensureTail(); syncEmpty(); syncAudioPlayers(); scheduleSave('audio');
+            }
+        });
+        editor.addEventListener('pointerdown', function (e) {
+            if (e.target.matches && e.target.matches('[data-audio-seek]')) musicSeekDragging = e.target.closest('[data-md-audio]');
+        });
+        ['pointerup', 'pointercancel'].forEach(function (name) {
+            document.addEventListener(name, function () { if (musicSeekDragging) { musicSeekDragging = null; syncAudioPlayers(); } });
+        });
+        editor.addEventListener('input', function (e) {
+            if (e.target.matches && e.target.matches('[data-audio-seek]')) seekMusic(e.target, e.target.closest('[data-md-audio]'));
+        });
+        editor.addEventListener('change', function (e) {
+            if (e.target.matches && e.target.matches('[data-audio-seek]')) { musicSeekDragging = null; seekMusic(e.target, e.target.closest('[data-md-audio]')); }
+        });
+        $('linkForm').addEventListener('submit', submitLinkDialog);
+        $('linkCancel').addEventListener('click', function () { closeLinkDialog(true); });
+        $('linkKind').addEventListener('change', function () {
+            $('linkText').placeholder = this.value === 'audio' ? '歌曲名称' : '链接名称';
+            $('linkUrl').placeholder = this.value === 'audio' ? 'https://example.com/music.mp3' : 'https://';
+            $('linkError').hidden = true;
+        });
+        $('linkDialog').addEventListener('click', function (e) { if (e.target === this) closeLinkDialog(true); });
+        $('linkDialog').addEventListener('keydown', function (e) {
+            e.stopPropagation();
+            if (e.key === 'Escape') { e.preventDefault(); closeLinkDialog(true); }
+            if ((e.ctrlKey || e.metaKey) && /^(s|n)$/i.test(e.key)) e.preventDefault();
+            if (e.key === 'Tab') {
+                var fields = Array.prototype.filter.call($('linkForm').querySelectorAll('input,select,button'), function (el) { return !el.disabled; });
+                var first = fields[0], last = fields[fields.length - 1];
+                if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+        });
+        window.addEventListener('pagehide', function () {
+            stopAudioPlayback();
+            musicCache.forEach(function (entry) { URL.revokeObjectURL(entry.objectUrl); });
+            musicCache.clear(); musicCacheBytes = 0;
+            syncAudioPlayers();
+        });
+    }
+
     /* ================= 编辑器交互 ================= */
 
     // 从光标节点往上找到最近的块级元素（p/div/pre/blockquote/h1-h6）
@@ -3410,23 +4095,7 @@
     }
 
     function insertLink() {
-        if (isReadOnly()) return;
-        var selected = rawMode ? rawBox.value.slice(rawBox.selectionStart, rawBox.selectionEnd) : window.getSelection().toString();
-        var url = window.prompt('输入链接地址', 'https://');
-        if (url === null) return;
-        var href = safeHref(url);
-        if (!href) { toast('链接请使用 http、https、mailto 或站内地址', true); return; }
-        if (!rawMode) rememberEditorHistoryBoundary();
-        if (rawMode) {
-            var label = selected || '链接文字';
-            insertMarkdownSnippet('[' + label + '](' + href + ')');
-        } else if (selected) {
-            document.execCommand('createLink', false, href);
-            scheduleSave();
-        } else {
-            document.execCommand('insertHTML', false, '<a href="' + escAttr(href) + '" target="_blank" rel="noreferrer">链接文字</a>');
-            scheduleSave();
-        }
+        openLinkDialog(null);
     }
 
     function insertImage() {
@@ -3638,6 +4307,18 @@
         if (trigger === 'enter') {
             if (context.li || context.block.closest('blockquote')) return false;
             if (context.remainder.toString().trim()) return false;
+            var audio = parseAudioLine(text);
+            if (audio && !context.beforeBreak && !context.afterBreak &&
+                !context.line.cloneContents().querySelector('img,code,pre,table,input,hr,[data-md-audio]')) {
+                // 只转换完整的单段音乐语法；软换行混排留给插入对话框，避免吞并前后正文。
+                try {
+                    placeAudioBlock(audio.title, audio.url, { range: context.line.cloneRange() });
+                    return true;
+                } catch (error) {
+                    toast('未能转换音乐，请使用链接按钮插入');
+                    return false;
+                }
+            }
             if ((m = text.match(/^```([a-zA-Z0-9_+.-]*)[ \t]*$/))) return replaceShortcutLine(context, 'pre', m[1]);
             if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(text)) return replaceShortcutLine(context, '', '', 'hr');
             return false;
@@ -4142,12 +4823,16 @@
         return node === root ? { path: path, offset: offset } : null;
     }
 
+    function isEditorTextPoint(node) {
+        return !!node && editor.contains(node) && !isAudioUiTarget(node) && !layoutAncestor(node, '[data-md-audio]', editor);
+    }
+
     function captureEditorSnapshot() {
         var copy = cloneEditorForEdit(), sel = window.getSelection(), source = null, backwards = false;
-        if (sel && sel.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)) {
+        if (sel && sel.rangeCount && !isAudioUiTarget(document.activeElement) && isEditorTextPoint(sel.anchorNode) && isEditorTextPoint(sel.focusNode)) {
             source = sel.getRangeAt(0);
             backwards = !source.collapsed && sel.anchorNode === source.endContainer && sel.anchorOffset === source.endOffset;
-        } else if (lastEditorRange && editor.contains(lastEditorRange.startContainer) && editor.contains(lastEditorRange.endContainer)) source = lastEditorRange;
+        } else if (lastEditorRange && isEditorTextPoint(lastEditorRange.startContainer) && isEditorTextPoint(lastEditorRange.endContainer)) source = lastEditorRange;
         var range = source ? cloneRangeInto(source, copy) : null;
         Array.prototype.forEach.call(copy.querySelectorAll('input[type="checkbox"]'), function (input) { input.removeAttribute('disabled'); });
         Array.prototype.forEach.call(copy.querySelectorAll('[data-md-caret]'), function (marker) { marker.remove(); });
@@ -4168,6 +4853,7 @@
         var wasRestoring = historyRestoring;
         historyRestoring = true;
         try {
+            stopAudioPlayback();
             hideImageBar();
             lastEditorRange = null;
             editor.innerHTML = snapshot.html;
@@ -4192,7 +4878,7 @@
             } else { range.selectNodeContents(editor); range.collapse(false); }
             sel.removeAllRanges(); sel.addRange(range);
             if (start && end && snapshot.selection.backwards && sel.setBaseAndExtent) sel.setBaseAndExtent(end.node, end.offset, start.node, start.offset);
-            syncEmpty(); syncTableBar(); syncImageBar(); syncLayoutButtons(); rememberEditorSelection(); renderOutline();
+            syncEmpty(); syncTableBar(); syncImageBar(); syncLayoutButtons(); rememberEditorSelection(); renderOutline(); syncAudioPlayers();
             $('docWrap').scrollTop = snapshot.scrollTop || 0;
         } finally { historyRestoring = wasRestoring; }
     }
@@ -4267,15 +4953,15 @@
 
     function rememberEditorSelection() {
         var sel = window.getSelection();
-        if (sel && sel.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)) {
+        if (sel && sel.rangeCount && !isAudioUiTarget(document.activeElement) && isEditorTextPoint(sel.anchorNode) && isEditorTextPoint(sel.focusNode)) {
             lastEditorRange = sel.getRangeAt(0).cloneRange();
         }
     }
 
     function restoreEditorSelection() {
         var sel = window.getSelection();
-        if (sel && sel.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)) return;
-        if (lastEditorRange && editor.contains(lastEditorRange.startContainer) && editor.contains(lastEditorRange.endContainer)) {
+        if (sel && sel.rangeCount && !isAudioUiTarget(document.activeElement) && isEditorTextPoint(sel.anchorNode) && isEditorTextPoint(sel.focusNode)) return;
+        if (lastEditorRange && isEditorTextPoint(lastEditorRange.startContainer) && isEditorTextPoint(lastEditorRange.endContainer)) {
             sel.removeAllRanges(); sel.addRange(lastEditorRange.cloneRange());
         } else caretToEnd();
     }
@@ -4328,6 +5014,7 @@
             check.checked = checks[index].checked;
             if (check.checked) check.setAttribute('checked', ''); else check.removeAttribute('checked');
         });
+        normalizeAudioBlocks(copy);
         return copy;
     }
 
@@ -4343,6 +5030,7 @@
         }
         layoutEditing = true;
         try {
+            stopAudioPlayback();
             var content = document.createDocumentFragment();
             while (copy.firstChild) content.appendChild(copy.firstChild);
             editor.replaceChildren(content);
@@ -4358,7 +5046,7 @@
         } finally {
             Array.prototype.forEach.call(editor.querySelectorAll('[data-md-caret]'), function (marker) { marker.remove(); });
             layoutEditing = false;
-            ensureTail(); syncEmpty(); syncTableBar(); syncImageBar(); syncLayoutButtons(); rememberEditorSelection();
+            ensureTail(); syncEmpty(); syncTableBar(); syncImageBar(); syncLayoutButtons(); rememberEditorSelection(); syncAudioPlayers();
             $('docWrap').scrollTop = before.scrollTop;
         }
         if (success) scheduleSave();
@@ -4548,8 +5236,19 @@
         return false;
     }
 
+    function editorSelectionContainsAudio() {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode) || !editor.contains(sel.focusNode)) return false;
+        var range = sel.getRangeAt(0);
+        return Array.prototype.some.call(editor.querySelectorAll('[data-md-audio]'), function (block) { return range.intersectsNode(block); });
+    }
+
     function cmdOf(cmd, btn) {
         if (isReadOnly()) return;
+        if (/^(h[1-6]|ul|ol|task|quote|pre|hr|table|code)$/.test(cmd) && editorSelectionContainsAudio()) {
+            toast('请在文字段落设置此格式，音乐块可使用居中、靠右或左右同行');
+            return;
+        }
         if (blockCmdInCell(cmd)) return;
         if (cmd === 'undo') undoEditorHistory(false);
         else if (cmd === 'redo') undoEditorHistory(true);
@@ -4578,6 +5277,7 @@
     function startNewNote() {
         if (isReadOnly()) return;
         if (currentMd().trim() && !window.confirm('清空编辑器，开始写一条新笔记？（未保存的改动会丢失）')) return;
+        stopAudioPlayback();
         lastEditorRange = null;
         hideImageBar();
         editor.innerHTML = '';
@@ -4587,6 +5287,7 @@
         loadedIdx = -1;
         syncEmpty();
         resetEditorHistory();
+        syncAudioPlayers();
         scheduleSave();
         renderSide();
         (rawMode ? rawBox : editor).focus();
@@ -4648,7 +5349,23 @@
             branches.forEach(function (entry) { if (folded) outlineCollapsed.delete(entry.key); else outlineCollapsed.add(entry.key); });
             renderOutline();
         });
-        new MutationObserver(queueOutlineUpdate).observe(editor, { childList: true, characterData: true, subtree: true });
+        new MutationObserver(function (records) {
+            var documentChanged = false, audioChanged = false;
+            function hasAudio(node) {
+                return node.nodeType === 1 && (node.matches('[data-md-audio]') || !!node.querySelector('[data-md-audio]'));
+            }
+            records.forEach(function (record) {
+                if (isAudioUiTarget(record.target)) return;
+                if (record.type === 'attributes') { audioChanged = true; return; }
+                documentChanged = true;
+                if (layoutAncestor(record.target, '[data-md-audio]', editor)) audioChanged = true;
+                if (record.type === 'childList' &&
+                    (Array.prototype.some.call(record.addedNodes, hasAudio) || Array.prototype.some.call(record.removedNodes, hasAudio))) audioChanged = true;
+            });
+            if (documentChanged) queueOutlineUpdate();
+            if (audioChanged) syncAudioPlayers();
+        }).observe(editor, { childList: true, characterData: true, subtree: true, attributes: true,
+            attributeFilter: ['data-md-audio', 'data-audio-title', 'data-audio-src'] });
         $('docWrap').addEventListener('scroll', queueOutlineActive, { passive: true });
         rawBox.addEventListener('keyup', queueOutlineActive);
         rawBox.addEventListener('click', queueOutlineActive);
@@ -4711,14 +5428,16 @@
             ensureTail(); syncEmpty(); syncLayoutButtons(); scheduleSave();
             return true;
         }
-        editor.addEventListener('compositionstart', function () {
+        editor.addEventListener('compositionstart', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             refreshEditorInputMode();
             if (isReadOnly()) { markdownComposing = false; editorCompositionGroup = ''; return; }
             markdownComposing = true;
             editorCompositionGroup = 'composition:' + (++editorCompositionSequence);
             rememberEditorHistoryBoundary(editorCompositionGroup);
         });
-        editor.addEventListener('compositionend', function () {
+        editor.addEventListener('compositionend', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             markdownComposing = false;
             if (refreshEditorInputMode() || isReadOnly()) { editorCompositionGroup = ''; return; }
             var compositionGroup = editorCompositionGroup;
@@ -4732,6 +5451,7 @@
             }, 0);
         });
         editor.addEventListener('beforeinput', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             refreshEditorInputMode();
             if (isReadOnly()) { if (e.cancelable) e.preventDefault(); pendingTaskItem = null; return; }
             if (historyRestoring) return;
@@ -4763,6 +5483,7 @@
             }
         });
         editor.addEventListener('input', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             refreshEditorInputMode();
             if (historyRestoring || markdownTransforming || layoutEditing) return;
             if (isReadOnly()) {
@@ -4794,6 +5515,7 @@
         });
 
         editor.addEventListener('keydown', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             refreshEditorInputMode();
             if (isReadOnly()) return;
             if (e.isComposing || markdownComposing || e.keyCode === 229) return;
@@ -4876,6 +5598,7 @@
         });
 
         editor.addEventListener('paste', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             if (isReadOnly()) { e.preventDefault(); return; }
             var txt = (e.clipboardData || window.clipboardData).getData('text/plain');
             if (!txt) return;
@@ -4891,7 +5614,29 @@
                 syncTableBar();
                 return;
             }
-            var looksMd = /\n/.test(txt) || /(^|\n)\s*(#{1,6}\s|[-*+]\s|>\s|\d+[.)]\s|```)/.test(txt);
+            var selection = window.getSelection();
+            var pasteRange = selection && selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+            var singleAudio = parseAudioLine(txt);
+            var containsAudio = !!singleAudio || txt.replace(/\r\n?/g, '\n').split('\n').some(function (line) { return !!parseAudioLine(line); });
+            var musicRestricted = pasteRange &&
+                (layoutAncestor(pasteRange.startContainer, 'li,blockquote,pre,code', editor) ||
+                 layoutAncestor(pasteRange.endContainer, 'li,blockquote,pre,code', editor));
+            if (containsAudio && musicRestricted) {
+                document.execCommand('insertText', false, txt);
+                syncEmpty(); scheduleSave();
+                return;
+            }
+            if (singleAudio && pasteRange && editor.contains(pasteRange.startContainer) && editor.contains(pasteRange.endContainer)) {
+                try {
+                    placeAudioBlock(singleAudio.title, singleAudio.url, { range: pasteRange });
+                } catch (error) {
+                    // 放置失败时保持字面内容；placeAudioBlock 已恢复原正文和选区。
+                    document.execCommand('insertText', false, txt);
+                    syncEmpty(); scheduleSave();
+                }
+                return;
+            }
+            var looksMd = /\n/.test(txt) || !!singleAudio || /(^|\n)\s*(#{1,6}\s|[-*+]\s|>\s|\d+[.)]\s|```)/.test(txt);
             if (looksMd && txt.trim()) document.execCommand('insertHTML', false, md2html(txt));
             else document.execCommand('insertText', false, txt);
             syncEmpty();
@@ -4899,15 +5644,18 @@
         });
 
         editor.addEventListener('drop', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             if (isReadOnly()) { e.preventDefault(); return; }
             rememberEditorHistoryBoundary();
         });
         editor.addEventListener('cut', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             if (isReadOnly()) { e.preventDefault(); return; }
             rememberEditorHistoryBoundary();
         });
 
         editor.addEventListener('change', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             var input = e.target.closest && e.target.closest('li[data-task] input[type="checkbox"]');
             if (!input) return;
             var li = input.closest('li[data-task]');
@@ -4923,6 +5671,7 @@
         });
 
         editor.addEventListener('click', function (e) {
+            if (isAudioUiTarget(e.target)) return;
             if (isReadOnly()) { hideImageBar(); return; }
             var image = e.target.closest && e.target.closest('img');
             if (!image || !editor.contains(image)) { hideImageBar(); return; }
@@ -4947,6 +5696,8 @@
             tableSyncTimer = setTimeout(syncTableBar, 30);
         }
         document.addEventListener('selectionchange', function () {
+            var sel = window.getSelection();
+            if (isAudioUiTarget(document.activeElement) || (sel && (isAudioUiTarget(sel.anchorNode) || isAudioUiTarget(sel.focusNode)))) return;
             if (!rawMode && !layoutEditing) { rememberEditorSelection(); syncLayoutButtons(); queueTableSync(); }
         });
         editor.addEventListener('focus', queueTableSync);
@@ -5011,6 +5762,10 @@
         });
         document.addEventListener('keydown', function (e) {
             var key = e.key.toLowerCase(), target = e.target;
+            if (isAudioUiTarget(target)) {
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && key === 's') { e.preventDefault(); doSave(false); }
+                return;
+            }
             var otherField = target && target.closest && target.closest('input,textarea,select,[contenteditable="true"]');
             if (isReadOnly() && (e.ctrlKey || e.metaKey) && !e.altKey &&
                 /^(z|y|k|n)$/.test(key) && (!otherField || otherField === editor)) {
@@ -5160,6 +5915,7 @@
         loadSettings();
         $('bookLabel').textContent = $('bookId').value.trim();
         bind();
+        bindAudioPlayers();
         setEditorMode('read');
         setStatus('读取中…');
         refresh(true).then(function () {
