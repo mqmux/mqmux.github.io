@@ -3221,6 +3221,46 @@
         syncTableBar();
     }
 
+    // 原文重新排版时复用音乐节点，播放器、下载任务和事件监听继续指向同一首歌。
+    function renderEditorKeepingMusic(md) {
+        var copy = document.createElement('div'); copy.innerHTML = md ? md2html(md) : '';
+        var existing = musicTracks(), used = new Set();
+        var replacements = Array.prototype.map.call(copy.querySelectorAll('[data-md-audio]'), function (block) {
+            return { block: block, previous: null };
+        });
+        // 同地址重复出现时优先保留正在播放的节点，不能因匹配到另一副本而中断。
+        if (musicCurrent && existing.indexOf(musicCurrent) >= 0) {
+            var active = replacements.find(function (item) {
+                return item.block.getAttribute('data-audio-src') === musicCurrentUrl &&
+                    item.block.getAttribute('data-audio-title') === musicCurrent.getAttribute('data-audio-title');
+            }) || replacements.find(function (item) { return item.block.getAttribute('data-audio-src') === musicCurrentUrl; });
+            if (active) { active.previous = musicCurrent; used.add(musicCurrent); }
+        }
+        // 先匹配名称和地址，再匹配只改了名称的音乐，避免重复地址错配当前歌曲。
+        [true, false].forEach(function (exact) {
+            replacements.forEach(function (item) {
+                if (item.previous) return;
+                var source = item.block.getAttribute('data-audio-src'), title = item.block.getAttribute('data-audio-title');
+                var previous = existing.find(function (block) {
+                    return !used.has(block) && block.getAttribute('data-audio-src') === source &&
+                        (!exact || block.getAttribute('data-audio-title') === title);
+                });
+                if (previous) { item.previous = previous; used.add(previous); }
+            });
+        });
+        replacements.forEach(function (item) {
+            if (!item.previous) return;
+            var title = item.block.getAttribute('data-audio-title') || '';
+            item.previous.setAttribute('data-audio-title', title);
+            var name = item.previous.querySelector('[data-audio-name]');
+            if (name) name.textContent = title || '音乐';
+            item.block.replaceWith(item.previous);
+        });
+        var content = document.createDocumentFragment();
+        while (copy.firstChild) content.appendChild(copy.firstChild);
+        editor.replaceChildren(content);
+    }
+
     function setEditorMode(next) {
         if (!notebookReady()) return;
         if (['read', 'edit', 'raw'].indexOf(next) < 0) return;
@@ -3240,11 +3280,10 @@
         editorMode = next;
         rawMode = next === 'raw';
         if (sourceChanged) {
-            stopAudioPlayback();
             lastEditorRange = null;
             rawBox.value = md;
-            editor.innerHTML = md ? md2html(md) : '';
-            if (!rawMode) ensureTail();
+            // 进入原文只切换视图；离开原文才更新正文，并保留同地址音乐的播放状态。
+            if (!rawMode) { renderEditorKeepingMusic(md); ensureTail(); }
         }
         syncEditorModeUI();
         syncEmpty();
@@ -3638,7 +3677,7 @@
     }
 
     function syncAudioPlayers() {
-        if (musicCurrent && (rawMode || !editor.contains(musicCurrent) ||
+        if (musicCurrent && (!editor.contains(musicCurrent) ||
             audioUrl(musicCurrent.getAttribute('data-audio-src')) !== musicCurrentUrl)) {
             stopAudioPlayback();
             return;
@@ -3781,7 +3820,7 @@
     }
 
     function handleMusicFailure(error, generation, block) {
-        if (generation !== musicGeneration || musicCurrent !== block || !editor.contains(block) || rawMode ||
+        if (generation !== musicGeneration || musicCurrent !== block || !editor.contains(block) ||
             musicHandledFailureGeneration === generation) return;
         if (error.name === 'AbortError') { musicPhase = 'paused'; syncAudioPlayers(); return; }
         if (error.name === 'NotAllowedError') {
@@ -3814,7 +3853,7 @@
     function bindMusicSource(block, entry, generation) {
         if (musicCleanup) musicCleanup();
         var player = musicPlayer, listeners = [];
-        function valid() { return generation === musicGeneration && musicCurrent === block && editor.contains(block) && !rawMode && musicObjectUrl === entry.objectUrl; }
+        function valid() { return generation === musicGeneration && musicCurrent === block && editor.contains(block) && musicObjectUrl === entry.objectUrl; }
         function on(name, fn) {
             var handler = function () { if (valid()) fn(); };
             player.addEventListener(name, handler); listeners.push([name, handler]);
@@ -3837,7 +3876,7 @@
     }
 
     async function startMusicTrack(block, restart, automatic) {
-        if (!block || rawMode || !editor.contains(block)) return;
+        if (!block || !editor.contains(block)) return;
         var url = audioUrl(block.getAttribute('data-audio-src'));
         if (!url) return;
         if (!automatic) musicFailures.delete(url);
@@ -3853,7 +3892,7 @@
         syncAudioPlayers();
         try {
             var entry = await downloadMusic(url);
-            if (generation !== musicGeneration || musicCurrent !== block || !editor.contains(block) || rawMode) return;
+            if (generation !== musicGeneration || musicCurrent !== block || !editor.contains(block)) return;
             if (!musicPlayer) { musicPlayer = document.createElement('audio'); musicPlayer.preload = 'none'; }
             musicObjectUrl = entry.objectUrl;
             if (!resume || musicPlayer.getAttribute('src') !== entry.objectUrl) {
