@@ -878,9 +878,9 @@
 
     /* 音乐控件不参与正文编辑，所有播放状态只存在页面内。 */
     .md-audio {
-        max-width: 540px;
+        max-width: 100%;
         width: 100%;
-        margin: 0.8em 0;
+        margin: 0.6rem 0;
         margin-inline-start: var(--md-block-start, 0px);
         margin-inline-end: var(--md-block-end, 0px);
         padding: 9px 11px;
@@ -890,6 +890,16 @@
         font: 0.74rem/1.5 system-ui, sans-serif;
         text-align: left;
         user-select: none;
+    }
+    /* 音乐卡片横纵间距一致，左右平分宽度；列宽不足时各占一行。 */
+    :is(.editor, .sheet-body) [data-md-layout="row"]:has(> [data-md-cell] [data-md-audio]) {
+        align-items: flex-start;
+        gap: 0.6rem;
+    }
+    :is(.editor, .sheet-body) [data-md-layout="row"]:has(> [data-md-cell] [data-md-audio]) > [data-md-cell] {
+        flex: 1 1 calc(50% - 0.3rem);
+        min-width: min(16rem, 100%);
+        margin-left: 0;
     }
     .audio-ui { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
     .audio-ui button { padding: 3px 7px; min-height: 27px; border-radius: 5px; background: transparent; border-color: transparent; font-size: 0.68rem; }
