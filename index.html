@@ -1065,6 +1065,8 @@
     .request-title{flex:1;min-width:0;overflow-wrap:anywhere}.request-method{flex:none;padding:0;color:#799aab;font:10px/1.5 monospace}
     :is(.editor,.sheet-body) .request-actions [data-request-action=edit]{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;padding:4px;background:transparent;font-size:12px}
     @media(max-width:640px){:is(.editor,.sheet-body) .request-actions [data-request-action=send]{padding-left:43px;padding-right:23px;font-size:12px}.request-actions [data-request-action=send]::before{left:9px;width:25px}.request-method{font-size:9px}}
+    .request-actions [data-request-action=send]::before{content:attr(data-card-glyph);color:var(--card-icon-color,#91b7ff)}
+    :is(.editor,.sheet-body) .request-actions [data-request-action=edit]{display:none}
 </style>
 </head>
 <body>
@@ -1837,15 +1839,17 @@
         var headers=input.headers||{};if(typeof headers!=='object'||Array.isArray(headers))throw new Error('请求头需要 JSON 对象');var cleanHeaders={};Object.keys(headers).forEach(function(key){if(typeof headers[key]!=='string')throw new Error('请求头的值需要字符串');Object.defineProperty(cleanHeaders,key,{value:headers[key],enumerable:true});});new Headers(cleanHeaders);
         var result={title:String(input.title||'发送请求').replace(/[\r\n]+/g,' ').slice(0,120),url:url.href,method:method};
         if(Object.keys(cleanHeaders).length)result.headers=cleanHeaders;
+        if(Object.prototype.hasOwnProperty.call(noteCardIcons,input.icon||''))result.icon=input.icon;
         if(!/^(GET|HEAD)$/.test(method)&&input.body!==undefined&&input.body!=='')result.body=typeof input.body==='string'?input.body:JSON.stringify(input.body);
         return result;
     }
     function requestButtonMarkdown(config){return ':::request\n'+JSON.stringify(normalizeRequestConfig(config),null,2)+'\n:::';}
-    function requestButtonHtml(config){return '<div data-md-request="1" data-request-config="'+escAttr(esc(JSON.stringify(config)))+'" contenteditable="false"><div class="request-actions"><button type="button" data-request-action="send"><span class="request-title">'+esc(config.title)+'</span><span class="request-method">'+esc(config.method)+'</span></button><button type="button" data-request-action="edit" title="修改请求按钮" aria-label="修改请求按钮">✎</button></div><details class="request-result" hidden><summary role="status"></summary><pre></pre></details></div>';}
+    function requestButtonHtml(config){var icon=noteCardIcons[config.icon]||noteCardIcons.link;return '<div data-md-request="1" data-request-config="'+escAttr(esc(JSON.stringify(config)))+'" contenteditable="false"><div class="request-actions"><button type="button" data-request-action="send" data-card-glyph="'+escAttr(esc(icon[0]))+'" style="--card-icon-color:'+icon[1]+'"><span class="request-title">'+esc(config.title)+'</span><span class="request-method">'+esc(config.method)+'</span></button><button type="button" data-request-action="edit" title="修改请求按钮" aria-label="修改请求按钮">✎</button></div><details class="request-result" hidden><summary role="status"></summary><pre></pre></details></div>';}
     function openRequestDialog(block){
         openLinkDialog(null);if(!linkDialogContext)return;var config=JSON.parse(block.getAttribute('data-request-config'));linkDialogContext.requestBlock=block;
         var range=document.createRange();range.selectNode(block);linkDialogContext.range=range;
         $('linkKind').value='request';$('linkKind').disabled=true;$('linkText').value=config.title;$('linkUrl').value=config.url;$('requestMethod').value=config.method;
+        $('linkIcon').value=config.icon||'';
         $('requestHeaders').value=config.headers?JSON.stringify(config.headers,null,2):'';$('requestBody').value=config.body||'';$('linkDialogTitle').textContent='修改请求按钮';$('linkSubmit').textContent='保存';syncCardDialog();
     }
     var runningRequestButtons=new WeakSet();
@@ -1887,7 +1891,7 @@
         });return box.innerHTML;
     }
     function noteCardMarkdown(title,url,icon){return ':::cards\n- ['+escapeMdLinkLabel(title)+']('+escapeMdLinkUrl(url)+')'+(Object.prototype.hasOwnProperty.call(noteCardIcons,icon||'')?' {icon:'+icon+'}':'')+'\n:::';}
-    function syncCardDialog(){ $('linkIconWrap').hidden=$('linkKind').value!=='card';$('requestFields').hidden=$('linkKind').value!=='request';$('requestBodyWrap').hidden=/^(GET|HEAD)$/.test($('requestMethod').value); }
+    function syncCardDialog(){ $('linkIconWrap').hidden=!/^(card|request)$/.test($('linkKind').value);$('requestFields').hidden=$('linkKind').value!=='request';$('requestBodyWrap').hidden=/^(GET|HEAD)$/.test($('requestMethod').value); }
     function openCardDialog(anchor){
         openLinkDialog(null);if(!linkDialogContext)return;linkDialogContext.card=anchor;var range=document.createRange();range.selectNodeContents(anchor);linkDialogContext.range=range;
         $('linkKind').value='card';$('linkKind').disabled=true;$('linkText').value=anchor.textContent;$('linkUrl').value=anchor.getAttribute('href');$('linkIcon').value=anchor.hasAttribute('data-card-custom')?anchor.getAttribute('data-card-icon'):'';
@@ -4200,7 +4204,7 @@
         var url = audio ? audioUrl($('linkUrl').value) : safeHref($('linkUrl').value);
         if (!url) { fail(audio ? '请输入 http 或 https 音频直链' : '请输入有效的链接地址'); return; }
         try {
-            var requestConfig=requestButton?normalizeRequestConfig({title:title,url:url,method:$('requestMethod').value,headers:JSON.parse($('requestHeaders').value.trim()||'{}'),body:$('requestBody').value}):null;
+            var requestConfig=requestButton?normalizeRequestConfig({title:title,url:url,icon:icon,method:$('requestMethod').value,headers:JSON.parse($('requestHeaders').value.trim()||'{}'),body:$('requestBody').value}):null;
             if (context.source) {
                 var md = requestButton?requestButtonMarkdown(requestConfig):card ? noteCardMarkdown(title,url,icon) : audio ? audioMarkdown(title, url) : '[' + escapeMdLinkLabel(title) + '](' + escapeMdLinkUrl(url) + ')';
                 var start = context.start, end = context.end;
@@ -4289,7 +4293,7 @@
         $('linkForm').addEventListener('submit', submitLinkDialog);
         $('linkCancel').addEventListener('click', function () { closeLinkDialog(true); });
         $('requestMethod').addEventListener('change',syncCardDialog);
-        editor.addEventListener('click',function(e){var action=e.target.closest&&e.target.closest('[data-request-action]');if(!action)return;var block=action.closest('[data-md-request]');if(!block)return;e.preventDefault();if(action.dataset.requestAction==='send')sendRequestButton(block);else if(!isReadOnly())openRequestDialog(block);});
+        editor.addEventListener('click',function(e){var action=e.target.closest&&e.target.closest('[data-request-action]');if(!action)return;var block=action.closest('[data-md-request]');if(!block)return;e.preventDefault();if(!isReadOnly())openRequestDialog(block);else if(action.dataset.requestAction==='send')sendRequestButton(block);});
         editor.addEventListener('click',function(e){var anchor=e.target.closest&&e.target.closest('a[data-md-card]');if(anchor&&!isReadOnly()){e.preventDefault();openCardDialog(anchor);}});
         $('linkKind').addEventListener('change', function () {
             syncCardDialog();
