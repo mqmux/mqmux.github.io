@@ -27,6 +27,26 @@
 
 支持与分隔线、居中、左右分栏等格式组合。图标名称：`home`、`table`、`sheet`、`document`、`file`、`folder`、`mail`、`cart`、`warning`、`star`、`calendar`、`image`、`music`、`upload`、`download`、`settings`、`people`、`check`、`chart`、`truck`、`receipt`、`globe`、`code`、`link`。省略 `{icon:...}` 时自动识别图标。
 
+## 请求按钮
+
+在「链接」弹窗的显示方式中选择「请求按钮」，填写地址、请求方法，可选请求头（JSON 对象）和请求体（JSON 或文本）。支持 GET、POST、PUT、PATCH、DELETE、HEAD、OPTIONS。GET/HEAD 不发送请求体。点击按钮会在当前页面发出请求，不跳转页面；旁边的铅笔用于编辑配置。
+
+原文保存为显式增强格式：
+
+```md
+:::request
+{
+  "title": "发送消息",
+  "url": "https://example.com/api/message",
+  "method": "POST",
+  "headers": {"Content-Type": "application/json"},
+  "body": {"message": "hello"}
+}
+:::
+```
+
+页面加载不会自动发送。请求中禁用重复点击，30 秒超时，完成后显示 HTTP 状态并可展开响应预览；响应内容不写入笔记。请求直接由浏览器发出，跨域接口需允许网页来源的 CORS 请求。页面重载后不保留响应预览。
+
 ## 访问
 
 https://mqmux.github.io/

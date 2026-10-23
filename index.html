@@ -1055,6 +1055,9 @@
     @media(max-width:640px){:is(.editor,.sheet-body) [data-md-layout="cards"] > ul[data-card-list]{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}:is(.editor,.sheet-body) a[data-md-card]{min-height:64px;padding-left:43px;padding-right:23px;font-size:12px}:is(.editor,.sheet-body) a[data-md-card]::before{left:9px;width:25px}:is(.editor,.sheet-body) a[data-md-card]::after{right:8px}}
 
     .favicon-options{display:flex;gap:4px}.favicon-options button{display:grid;place-items:center;width:30px;height:30px;padding:3px;border:1px solid transparent;border-radius:6px;background:transparent}.favicon-options button:hover{background:#17303d}.favicon-options button[aria-checked="true"]{border-color:#67bfd5;background:#17303d}.favicon-options img{display:block;width:20px;height:20px;object-fit:contain}.favicon-options button:focus-visible{outline:2px solid #7bdaf0;outline-offset:2px}
+
+    :is(.editor,.sheet-body) [data-md-request]{display:block;margin:14px 0;min-width:0}.request-actions{display:flex;align-items:center;gap:6px}.request-actions button{border:1px solid #365e72;border-radius:8px;background:#122937;color:#daf1fc;padding:9px 14px;font:inherit;font-size:13px;cursor:pointer}.request-actions button:hover{background:#1b3b4d}.request-actions button:disabled{opacity:.6;cursor:wait}.request-actions button:focus-visible{outline:2px solid #83d6ed;outline-offset:3px}.request-method{font:10px/1.5 monospace;color:#8dc5dc;padding-right:8px}.request-actions [data-request-action=edit]{padding:7px 9px;background:transparent;color:#8fb2c2}.editor.read-only [data-request-action=edit],.sheet-body [data-request-action=edit]{display:none}.request-result{margin-top:7px;font-size:12px;color:#a9c5d4}.request-result summary{cursor:pointer}.editor .request-result pre{max-height:260px;overflow:auto;padding:12px;white-space:pre-wrap;word-break:break-word;font-size:11px;margin-top:6px}.request-options{margin-top:10px}.request-options summary{font-size:12px;color:#9bbdcd;cursor:pointer}.request-options label{display:block;margin:10px 0 5px}.request-options textarea{display:block;box-sizing:border-box;width:100%;max-width:100%;resize:vertical;background:#07131a;border:1px solid #31505f;border-radius:6px;color:#d9edf5;padding:8px;font:12px/1.6 monospace}.request-hint{font-size:11px;color:#86a5b5;margin:8px 0}#requestMethod{width:100%}.link-form{max-height:85dvh;overflow:auto}.request-result[hidden],#requestFields[hidden]{display:none}
+
 </style>
 </head>
 <body>
@@ -1225,12 +1228,17 @@
     <form class="link-form" id="linkForm">
         <h2 id="linkDialogTitle">插入链接</h2>
         <label for="linkKind">显示方式</label>
-        <select id="linkKind"><option value="link">普通链接</option><option value="card">链接卡片</option><option value="audio">音乐播放器</option></select>
+        <select id="linkKind"><option value="link">普通链接</option><option value="card">链接卡片</option><option value="request">请求按钮</option><option value="audio">音乐播放器</option></select>
         <div id="linkIconWrap" hidden><label for="linkIcon">卡片图标</label><select id="linkIcon"><option value="">自动识别</option><option value="home">主页</option><option value="table">多维表</option><option value="sheet">电子表格</option><option value="document">文档</option><option value="file">文件</option><option value="folder">文件夹</option><option value="mail">邮件</option><option value="cart">购物</option><option value="warning">警示</option><option value="star">收藏</option><option value="calendar">日历</option><option value="image">图片</option><option value="music">音乐</option><option value="upload">上传</option><option value="download">下载</option><option value="settings">设置</option><option value="people">成员</option><option value="check">完成</option><option value="chart">数据</option><option value="truck">物流</option><option value="receipt">票据</option><option value="globe">网页</option><option value="code">代码</option><option value="link">链接</option></select></div>
         <label for="linkText">名称</label>
         <input id="linkText" type="text" autocomplete="off" placeholder="链接名称">
         <label for="linkUrl">地址</label>
         <input id="linkUrl" type="text" inputmode="url" autocomplete="off" placeholder="https://" required>
+        <div id="requestFields" hidden>
+            <label for="requestMethod">请求方法</label><select id="requestMethod"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option></select>
+            <details class="request-options"><summary>请求参数（可选）</summary><label for="requestHeaders">请求头 · JSON 对象</label><textarea id="requestHeaders" rows="3" spellcheck="false" placeholder='{"Authorization":"Bearer ..."}'></textarea><div id="requestBodyWrap"><label for="requestBody">请求体 · JSON 或文本</label><textarea id="requestBody" rows="4" spellcheck="false" placeholder='{"message":"hello"}'></textarea></div></details>
+            <p class="request-hint">点击按钮发送请求；跨域接口需允许此网页访问。</p>
+        </div>
         <p class="link-error" id="linkError" role="alert" hidden></p>
         <div class="link-actions"><button id="linkCancel" type="button">取消</button><button id="linkSubmit" type="submit">插入</button></div>
     </form>
@@ -1604,7 +1612,7 @@
     }
 
     function mdLayoutStart(line) {
-        var match = String(line).match(/^[ \t]*:::[ \t]*(center|right|small|row|cards)[ \t]*$/);
+        var match = String(line).match(/^[ \t]*:::[ \t]*(center|right|small|row|cards|request)[ \t]*$/);
         return match ? match[1] : '';
     }
 
@@ -1815,6 +1823,42 @@
         return true;
     }
 
+    function normalizeRequestConfig(input){
+        if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('请求配置需要 JSON 对象');
+        var url=new URL(String(input.url||''),location.href);if(!/^https?:$/.test(url.protocol)||!String(input.url||'').trim())throw new Error('请求地址须使用 http 或 https');
+        var method=String(input.method||'GET').toUpperCase();if(!/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/.test(method))throw new Error('不支持的请求方法');
+        var headers=input.headers||{};if(typeof headers!=='object'||Array.isArray(headers))throw new Error('请求头需要 JSON 对象');var cleanHeaders={};Object.keys(headers).forEach(function(key){if(typeof headers[key]!=='string')throw new Error('请求头的值需要字符串');Object.defineProperty(cleanHeaders,key,{value:headers[key],enumerable:true});});new Headers(cleanHeaders);
+        var result={title:String(input.title||'发送请求').replace(/[\r\n]+/g,' ').slice(0,120),url:url.href,method:method};
+        if(Object.keys(cleanHeaders).length)result.headers=cleanHeaders;
+        if(!/^(GET|HEAD)$/.test(method)&&input.body!==undefined&&input.body!=='')result.body=typeof input.body==='string'?input.body:JSON.stringify(input.body);
+        return result;
+    }
+    function requestButtonMarkdown(config){return ':::request\n'+JSON.stringify(normalizeRequestConfig(config),null,2)+'\n:::';}
+    function requestButtonHtml(config){return '<div data-md-request="1" data-request-config="'+escAttr(esc(JSON.stringify(config)))+'" contenteditable="false"><div class="request-actions"><button type="button" data-request-action="send"><span class="request-method">'+esc(config.method)+'</span> '+esc(config.title)+'</button><button type="button" data-request-action="edit" title="修改请求按钮" aria-label="修改请求按钮">✎</button></div><details class="request-result" hidden><summary role="status"></summary><pre></pre></details></div>';}
+    function openRequestDialog(block){
+        openLinkDialog(null);if(!linkDialogContext)return;var config=JSON.parse(block.getAttribute('data-request-config'));linkDialogContext.requestBlock=block;
+        var range=document.createRange();range.selectNode(block);linkDialogContext.range=range;
+        $('linkKind').value='request';$('linkKind').disabled=true;$('linkText').value=config.title;$('linkUrl').value=config.url;$('requestMethod').value=config.method;
+        $('requestHeaders').value=config.headers?JSON.stringify(config.headers,null,2):'';$('requestBody').value=config.body||'';$('linkDialogTitle').textContent='修改请求按钮';$('linkSubmit').textContent='保存';syncCardDialog();
+    }
+    var runningRequestButtons=new WeakSet();
+    async function sendRequestButton(block){
+        if(runningRequestButtons.has(block))return;var config;try{config=normalizeRequestConfig(JSON.parse(block.getAttribute('data-request-config')));}catch(error){toast(error.message,true);return;}
+        runningRequestButtons.add(block);var button=block.querySelector('[data-request-action="send"]'),edit=block.querySelector('[data-request-action="edit"]'),result=block.querySelector('.request-result'),summary=result.querySelector('summary'),output=result.querySelector('pre');
+        button.disabled=true;edit.disabled=true;button.setAttribute('aria-busy','true');result.hidden=false;summary.textContent='正在请求…';output.textContent='';
+        var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},30000);
+        try{
+            var headers=new Headers(config.headers||{}),options={method:config.method,headers:headers,signal:controller.signal};
+            if(config.body!==undefined){options.body=config.body;if(!headers.has('Content-Type')){try{JSON.parse(config.body);headers.set('Content-Type','application/json');}catch(_){headers.set('Content-Type','text/plain;charset=UTF-8');}}}
+            var response=await fetch(config.url,options),text='',limited=false;
+            if(response.body){var reader=response.body.getReader(),decoder=new TextDecoder(),bytes=0;try{while(true){var chunk=await reader.read();if(chunk.done)break;var available=Math.max(0,65536-bytes);text+=decoder.decode(chunk.value.subarray(0,available),{stream:true});bytes+=chunk.value.length;if(bytes>=65536){limited=true;await reader.cancel();break;}}text+=decoder.decode();}finally{reader.releaseLock();}}
+            try{text=JSON.stringify(JSON.parse(text),null,2);}catch(_){}if(text.length>6000){text=text.slice(0,6000);limited=true;}
+            summary.textContent=(response.ok?'完成':'请求返回错误')+' · HTTP '+response.status;output.textContent=(text||'（无响应正文）')+(limited?'\n…响应预览已截断':'');result.open=!response.ok;
+            toast(config.title+' · HTTP '+response.status,!response.ok);
+        }catch(error){summary.textContent=error.name==='AbortError'?'请求超时（30 秒）':'请求失败';output.textContent=error.name==='AbortError'?'请求超过等待时间，已停止等待。':'请检查请求地址、网络和服务端 CORS 配置。'+(error.message?'\n'+error.message:'');result.open=true;toast(summary.textContent,true);}
+        finally{clearTimeout(timer);runningRequestButtons.delete(block);button.disabled=false;edit.disabled=false;button.removeAttribute('aria-busy');}
+    }
+
     var noteCardIcons={home:['⌂','#91b7ff'],table:['▦','#aaa2ff'],sheet:['▤','#74c8ad'],document:['▧','#9bb9ff'],file:['◧','#aab4c5'],folder:['▰','#e0b86d'],mail:['✉','#83c4ff'],cart:['🛒','#ffad82'],warning:['⚠','#f0bd71'],star:['★','#f2cc69'],calendar:['▦','#85b8ff'],image:['▧','#ce9bff'],music:['♫','#e5a4d7'],upload:['↑','#80cbb8'],download:['↓','#80cbb8'],settings:['⚙','#aab4c5'],people:['♧','#8ec7bb'],check:['✓','#80cbb8'],chart:['▥','#91b7ff'],truck:['➜','#edb274'],receipt:['▤','#7fc5ab'],globe:['◎','#88bded'],code:['‹›','#c1a2ff'],link:['↗','#91b7ff']};
     function decorateNoteCard(anchor, icon) {
         var custom=Object.prototype.hasOwnProperty.call(noteCardIcons,icon||'');
@@ -1836,7 +1880,7 @@
         });return box.innerHTML;
     }
     function noteCardMarkdown(title,url,icon){return ':::cards\n- ['+escapeMdLinkLabel(title)+']('+escapeMdLinkUrl(url)+')'+(Object.prototype.hasOwnProperty.call(noteCardIcons,icon||'')?' {icon:'+icon+'}':'')+'\n:::';}
-    function syncCardDialog(){ $('linkIconWrap').hidden=$('linkKind').value!=='card'; }
+    function syncCardDialog(){ $('linkIconWrap').hidden=$('linkKind').value!=='card';$('requestFields').hidden=$('linkKind').value!=='request';$('requestBodyWrap').hidden=/^(GET|HEAD)$/.test($('requestMethod').value); }
     function openCardDialog(anchor){
         openLinkDialog(null);if(!linkDialogContext)return;linkDialogContext.card=anchor;var range=document.createRange();range.selectNodeContents(anchor);linkDialogContext.range=range;
         $('linkKind').value='card';$('linkKind').disabled=true;$('linkText').value=anchor.textContent;$('linkUrl').value=anchor.getAttribute('href');$('linkIcon').value=anchor.hasAttribute('data-card-custom')?anchor.getAttribute('data-card-icon'):'';
@@ -1898,6 +1942,10 @@
                     } else {
                         html.push(splitMdRowHtml(md2html(lines.slice(i + 1, layoutBounds.end).join('\n'), allowAudio, depth + 1)));
                     }
+                } else if(layout==='request'){
+                    var requestSource=lines.slice(i+1,layoutBounds.end).join('\n');
+                    try{html.push(requestButtonHtml(normalizeRequestConfig(JSON.parse(requestSource))));}
+                    catch(_){var literal=lines.slice(i,layoutBounds.end+1).join('\n');html.push('<div data-md-request-invalid="'+escAttr(esc(literal))+'"><pre><code>'+esc(literal)+'</code></pre></div>');}
                 } else {
                     var layoutBody = md2html(lines.slice(i + 1, layoutBounds.end).join('\n'), allowAudio, depth + 1);
                     if (layout === 'cards') layoutBody = renderNoteCards(layoutBody);
@@ -2064,6 +2112,8 @@
     // 所以必须在元素本身识别 strong/code 等标签；只遍历它的子节点会丢掉包裹标记。
     function nodeToMd(node) {
         if (node.hasAttribute('data-md-caret')) return '';
+        if(node.hasAttribute('data-md-request'))return requestButtonMarkdown(JSON.parse(node.getAttribute('data-request-config')));
+        if(node.hasAttribute('data-md-request-invalid'))return node.getAttribute('data-md-request-invalid');
         if (node.hasAttribute('data-md-audio')) return audioMarkdown(node.getAttribute('data-audio-title'), node.getAttribute('data-audio-src'));
         if (mdLayoutType(node.getAttribute('data-md-layout'))) return layoutToMd(node);
         var tag = node.tagName.toLowerCase();
@@ -2139,11 +2189,11 @@
     }
 
     var BLOCK_SEL = 'h1,h2,h3,h4,h5,h6,p,ul,ol,blockquote,pre,hr,div,table';
-    var CONTENT_SEL = 'img,hr,pre,table,ul,ol,input,[data-md-audio],[data-md-layout],[data-md-cell]';
+    var CONTENT_SEL = 'img,hr,pre,table,ul,ol,input,[data-md-request],[data-md-request-invalid],[data-md-audio],[data-md-layout],[data-md-cell]';
 
     function isEmptyEditableParagraph(el) {
         return !!el && /^(P|DIV)$/.test(el.tagName) && !el.hasAttribute('data-md-audio') &&
-            !el.hasAttribute('data-md-layout') && !el.hasAttribute('data-md-cell') &&
+            !el.hasAttribute('data-md-layout') && !el.hasAttribute('data-md-cell') && !el.hasAttribute('data-md-request') && !el.hasAttribute('data-md-request-invalid') &&
             !el.textContent.replace(/[\u200b\u00a0]/g, ' ').trim() && !el.querySelector(CONTENT_SEL);
     }
 
@@ -2177,6 +2227,7 @@
         var out = [];
 
         function emitBlock(el) {
+            if(el.hasAttribute('data-md-request')||el.hasAttribute('data-md-request-invalid')){out.push(nodeToMd(el));return;}
             if (el.hasAttribute('data-md-audio')) { out.push(nodeToMd(el)); return; }
             if (mdLayoutType(el.getAttribute('data-md-layout'))) { out.push(layoutToMd(el)); return; }
             var tag = el.tagName.toLowerCase();
@@ -2368,7 +2419,7 @@
     function updateDocumentTitle(){
         var lines=String(currentMd()||'').split(/\r?\n/),title='';
         for(var i=0;i<lines.length;i++){
-            var line=lines[i].trim();if(!line||/^:::(?:[ \t]*(?:center|right|small|row|cards|split))?[ \t]*$/.test(line)||/^(`{3,}|~{3,})/.test(line)||/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line))continue;
+            var line=lines[i].trim();if(line===':::request'){var bounds=mdLayoutBounds(lines,i,'request');if(bounds){try{title=normalizeRequestConfig(JSON.parse(lines.slice(i+1,bounds.end).join('\n'))).title;break;}catch(_){i=bounds.end;continue;}}}if(!line||/^:::(?:[ \t]*(?:center|right|small|row|cards|split))?[ \t]*$/.test(line)||/^(`{3,}|~{3,})/.test(line)||/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line))continue;
             line=line.replace(/^(?:>\s*)+/,'').replace(/^#{1,6}(?:\s+|$)/,'').replace(/^(?:[-+*]|\d+[.)])\s+(?:\[[ xX✓✔☑]\]\s*)?/,'').replace(/\s*\{(?:icon:[a-z-]+|audio|card|file|width=[^}]+)\}/gi,'');
             var box=document.createElement('div');box.innerHTML=inlineMd(esc(line),true);
             Array.prototype.forEach.call(box.querySelectorAll('img'),function(image){image.replaceWith(document.createTextNode(image.getAttribute('alt')||''));});
@@ -3233,7 +3284,7 @@
         var last = editor.lastElementChild;
         if (!last) return;
         var tag = last.tagName.toLowerCase();
-        if ((tag === 'p' || tag === 'div') && !last.hasAttribute('data-md-layout') && !last.hasAttribute('data-md-audio')) return;
+        if ((tag === 'p' || tag === 'div') && !last.hasAttribute('data-md-layout') && !last.hasAttribute('data-md-audio') && !last.hasAttribute('data-md-request') && !last.hasAttribute('data-md-request-invalid')) return;
         var p = document.createElement('p');
         p.appendChild(document.createElement('br'));
         p.setAttribute('data-tail', '1');
@@ -4054,7 +4105,7 @@
         $('linkUrl').value = block ? block.getAttribute('data-audio-src') : '';
         $('linkDialogTitle').textContent = block ? '修改音乐' : '插入链接';
         $('linkSubmit').textContent = block ? '保存' : '插入';
-        $('linkIcon').value='';syncCardDialog();
+        $('linkIcon').value='';$('requestMethod').value='GET';$('requestHeaders').value='';$('requestBody').value='';syncCardDialog();
         $('linkError').hidden = true;
         $('linkDialog').hidden = false;
         $('linkUrl').focus();
@@ -4086,7 +4137,7 @@
         }
         function prohibited(node) {
             var el = node.nodeType === 1 ? node : node.parentElement;
-            return el && el.closest('li,td,th,pre,blockquote,[data-md-audio]');
+            return el && el.closest('li,td,th,pre,blockquote,[data-md-audio],[data-md-request]');
         }
         if (!context.block && (prohibited(range.startContainer) || prohibited(range.endContainer))) {
             throw new Error('请在普通文字段落中插入音乐');
@@ -4137,15 +4188,16 @@
         if (!context || isReadOnly() || context.revision !== editorLoadRevision || context.modeRevision !== editorModeRevision) {
             fail('正文或编辑模式已变化，请关闭后重新插入'); return;
         }
-        var audio = $('linkKind').value === 'audio', card = $('linkKind').value === 'card', icon=$('linkIcon').value;
+        var audio = $('linkKind').value === 'audio', card = $('linkKind').value === 'card', requestButton=$('linkKind').value==='request', icon=$('linkIcon').value;
         var title = $('linkText').value.replace(/[\r\n]+/g, ' ').trim() || (audio ? '音乐' : '链接文字');
         var url = audio ? audioUrl($('linkUrl').value) : safeHref($('linkUrl').value);
         if (!url) { fail(audio ? '请输入 http 或 https 音频直链' : '请输入有效的链接地址'); return; }
         try {
+            var requestConfig=requestButton?normalizeRequestConfig({title:title,url:url,method:$('requestMethod').value,headers:JSON.parse($('requestHeaders').value.trim()||'{}'),body:$('requestBody').value}):null;
             if (context.source) {
-                var md = card ? noteCardMarkdown(title,url,icon) : audio ? audioMarkdown(title, url) : '[' + escapeMdLinkLabel(title) + '](' + escapeMdLinkUrl(url) + ')';
+                var md = requestButton?requestButtonMarkdown(requestConfig):card ? noteCardMarkdown(title,url,icon) : audio ? audioMarkdown(title, url) : '[' + escapeMdLinkLabel(title) + '](' + escapeMdLinkUrl(url) + ')';
                 var start = context.start, end = context.end;
-                if (audio || card) {
+                if (audio || card || requestButton) {
                     if (start > 0 && rawBox.value.charAt(start - 1) !== '\n') md = '\n' + md;
                     if (end < rawBox.value.length && rawBox.value.charAt(end) !== '\n') md += '\n';
                 }
@@ -4154,10 +4206,19 @@
                 closeLinkDialog(false); rawBox.focus({ preventScroll: true });
             } else if (audio) {
                 placeAudioBlock(title, url, context); closeLinkDialog(false);
+            } else if(requestButton){
+                if(!context.requestBlock&&context.range){var requestStart=context.range.startContainer.nodeType===1?context.range.startContainer:context.range.startContainer.parentElement,requestEnd=context.range.endContainer.nodeType===1?context.range.endContainer:context.range.endContainer.parentElement;if(requestStart.closest('li,td,th,pre,blockquote,[data-md-request]')||requestEnd.closest('li,td,th,pre,blockquote,[data-md-request]'))throw new Error('请在普通段落中插入请求按钮');}
+                editor.focus({preventScroll:true});var requestSelection=window.getSelection();
+                if(context.range&&editor.contains(context.range.startContainer)&&editor.contains(context.range.endContainer)){requestSelection.removeAllRanges();requestSelection.addRange(context.range);}
+                if(editorSelectionContainsAudio())throw new Error('请在文字位置插入请求按钮');
+                rememberEditorHistoryBoundary();
+                if(context.requestBlock){if(!editor.contains(context.requestBlock))throw new Error('按钮已移除');var holder=document.createElement('div');holder.innerHTML=requestButtonHtml(requestConfig);context.requestBlock.replaceWith(holder.firstElementChild);}
+                else if(!preserveMusicOnEdit(function(){document.execCommand('insertHTML',false,requestButtonHtml(requestConfig));})){fail('未能插入按钮，请重新选择位置');return;}
+                ensureTail();syncEmpty();scheduleSave();closeLinkDialog(false);
             } else if (card) {
                 editor.focus({preventScroll:true});var selection=window.getSelection();
                 if(context.range&&editor.contains(context.range.startContainer)&&editor.contains(context.range.endContainer)){selection.removeAllRanges();selection.addRange(context.range);}
-                if(editorSelectionContainsAudio())throw new Error('请在文字位置插入卡片，音乐块将保留');
+                if(editorSelectionContainsAudio()||editorSelectionContainsRequest())throw new Error('请在文字位置插入卡片，已有组件将保留');
                 rememberEditorHistoryBoundary();
                 if(context.card){if(!editor.contains(context.card))throw new Error('卡片已被移除，请重新选择');context.card.textContent=title;context.card.setAttribute('href',url);decorateNoteCard(context.card,icon);}
                 else if(!preserveMusicOnEdit(function(){document.execCommand('insertHTML',false,md2html(noteCardMarkdown(title,url,icon)));})){fail('未能插入卡片，请重新选择位置');return;}
@@ -4167,7 +4228,7 @@
                 if (context.range && editor.contains(context.range.startContainer) && editor.contains(context.range.endContainer)) {
                     var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(context.range);
                 } else restoreEditorSelection();
-                if (editorSelectionContainsAudio()) throw new Error('请选择文字添加普通链接；音乐块请使用修改按钮');
+                if (editorSelectionContainsAudio()||editorSelectionContainsRequest()) throw new Error('请选择文字添加普通链接；音乐和请求按钮请使用修改按钮');
                 rememberEditorHistoryBoundary();
                 if (!preserveMusicOnEdit(function () {
                     if (context.range && !context.range.collapsed && title === context.range.toString()) document.execCommand('createLink', false, url);
@@ -4220,6 +4281,8 @@
         });
         $('linkForm').addEventListener('submit', submitLinkDialog);
         $('linkCancel').addEventListener('click', function () { closeLinkDialog(true); });
+        $('requestMethod').addEventListener('change',syncCardDialog);
+        editor.addEventListener('click',function(e){var action=e.target.closest&&e.target.closest('[data-request-action]');if(!action)return;var block=action.closest('[data-md-request]');if(!block)return;e.preventDefault();if(action.dataset.requestAction==='send')sendRequestButton(block);else if(!isReadOnly())openRequestDialog(block);});
         editor.addEventListener('click',function(e){var anchor=e.target.closest&&e.target.closest('a[data-md-card]');if(anchor&&!isReadOnly()){e.preventDefault();openCardDialog(anchor);}});
         $('linkKind').addEventListener('change', function () {
             syncCardDialog();
@@ -4248,7 +4311,7 @@
             if (e.key === 'Escape') { e.preventDefault(); closeLinkDialog(true); }
             if ((e.ctrlKey || e.metaKey) && /^(s|n)$/i.test(e.key)) e.preventDefault();
             if (e.key === 'Tab') {
-                var fields = Array.prototype.filter.call($('linkForm').querySelectorAll('input,select,button'), function (el) { return !el.disabled; });
+                var fields = Array.prototype.filter.call($('linkForm').querySelectorAll('input,select,textarea,button,summary'), function (el) { return !el.disabled && el.getClientRects().length; });
                 var first = fields[0], last = fields[fields.length - 1];
                 if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
                 else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
@@ -5692,6 +5755,8 @@
         return false;
     }
 
+    function editorSelectionContainsRequest(){var selection=window.getSelection();if(!selection||!selection.rangeCount||!editor.contains(selection.anchorNode)||!editor.contains(selection.focusNode))return false;var range=selection.getRangeAt(0);return Array.prototype.some.call(editor.querySelectorAll('[data-md-request]'),function(block){return range.intersectsNode(block);});}
+
     function editorSelectionContainsAudio() {
         var sel = window.getSelection();
         if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode) || !editor.contains(sel.focusNode)) return false;
@@ -5701,6 +5766,7 @@
 
     function cmdOf(cmd, btn) {
         if (isReadOnly()) return;
+        if(!/^(undo|redo|layout-center|layout-right|layout-row|layout-small)$/.test(cmd)&&editorSelectionContainsRequest()){toast('请求按钮请通过旁边的修改按钮调整');return;}
         if(cmd==='card'){if(!rawMode&&editorSelectionContainsAudio()){toast('请在文字位置插入卡片，音乐块将保留');return;}openLinkDialog(null);if(linkDialogContext){$('linkKind').value='card';syncCardDialog();}return;}
         if (/^(h[1-6]|ul|ol|task|quote|pre|hr|table|code)$/.test(cmd) && editorSelectionContainsAudio()) {
             toast('请在文字段落设置此格式，音乐块可使用居中、靠右或左右同行');
@@ -6058,6 +6124,7 @@
         });
 
         editor.addEventListener('keydown', function (e) {
+            if(e.target.closest&&e.target.closest('[data-md-request]'))return;
             if (isAudioUiTarget(e.target)) return;
             refreshEditorInputMode();
             if (isReadOnly()) return;
