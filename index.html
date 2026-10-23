@@ -1442,7 +1442,8 @@
     }
 
     function inlinePunctuation(ch) {
-        return !!ch && /[!-/:-@\[-`{-~]/.test(ch);
+        // 分隔符两侧也识别中文、全角标点及 Unicode 符号，例如 **60%**，。
+        return !!ch && /[\p{P}\p{S}]/u.test(ch);
     }
 
     // 递归处理成对的行内标记，支持粗体、斜体、删除线与下划线嵌套。
