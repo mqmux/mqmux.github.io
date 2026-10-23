@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
 <title>Note</title>
+<link id="noteFavicon" rel="icon" type="image/x-icon" href="favicon.ico">
+<script>
+(function(){var icons={default:'favicon.ico',pink:'favicon-current.ico',purple:'favicon-purple.ico'},choice='default';try{choice=localStorage.getItem('memos_favicon')||'default';}catch(_){}document.getElementById('noteFavicon').setAttribute('href',Object.prototype.hasOwnProperty.call(icons,choice)?icons[choice]:icons.default);})();
+</script>
+
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -1049,6 +1054,7 @@
     #linkIconWrap label{display:block;margin-bottom:6px}#linkIconWrap select{width:100%;color-scheme:dark}
     @media(max-width:640px){:is(.editor,.sheet-body) [data-md-layout="cards"] > ul[data-card-list]{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}:is(.editor,.sheet-body) a[data-md-card]{min-height:64px;padding-left:43px;padding-right:23px;font-size:12px}:is(.editor,.sheet-body) a[data-md-card]::before{left:9px;width:25px}:is(.editor,.sheet-body) a[data-md-card]::after{right:8px}}
 
+    .favicon-options{display:flex;gap:4px}.favicon-options button{display:grid;place-items:center;width:30px;height:30px;padding:3px;border:1px solid transparent;border-radius:6px;background:transparent}.favicon-options button:hover{background:#17303d}.favicon-options button[aria-checked="true"]{border-color:#67bfd5;background:#17303d}.favicon-options img{display:block;width:20px;height:20px;object-fit:contain}.favicon-options button:focus-visible{outline:2px solid #7bdaf0;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -1123,6 +1129,11 @@
                 <label for="logVisit" title="把每次打开页面的时间和设备记到独立会话里，方便看谁什么时候访问过">记录访问</label>
                 <input type="checkbox" id="logVisit">
             </div>
+            <div class="fld"><span id="faviconLabel">图标</span><div class="favicon-options" role="radiogroup" aria-labelledby="faviconLabel">
+                <button type="button" role="radio" aria-checked="true" data-favicon="default" title="默认图标" aria-label="默认图标"><img src="favicon-default.png" alt="" width="20" height="20"></button>
+                <button type="button" role="radio" aria-checked="false" data-favicon="pink" title="紫粉图标" aria-label="紫粉图标" tabindex="-1"><img src="favicon-current.ico" alt="" width="20" height="20"></button>
+                <button type="button" role="radio" aria-checked="false" data-favicon="purple" title="蓝紫图标" aria-label="蓝紫图标" tabindex="-1"><img src="favicon-purple.ico" alt="" width="20" height="20"></button>
+            </div></div>
             <div class="fld settings-actions">
                 <button id="historyBtn">历史</button>
                 <button id="accessBtn">访问</button>
@@ -2347,7 +2358,27 @@
             localStorage.setItem('memos_logvisit', logVisitOn() ? '1' : '0');
         } catch (e) {}
     }
+    function applyFavicon(choice){
+        var icons={default:'favicon.ico',pink:'favicon-current.ico',purple:'favicon-purple.ico'};
+        if(!Object.prototype.hasOwnProperty.call(icons,choice||''))choice='default';
+        $('noteFavicon').setAttribute('href',icons[choice]);
+        Array.prototype.forEach.call(document.querySelectorAll('[data-favicon]'),function(button){var selected=button.dataset.favicon===choice;button.setAttribute('aria-checked',String(selected));button.tabIndex=selected?0:-1;});
+    }
+    function chooseFavicon(choice){applyFavicon(choice);try{localStorage.setItem('memos_favicon',choice);}catch(_){}}
+    function updateDocumentTitle(){
+        var lines=String(currentMd()||'').split(/\r?\n/),title='';
+        for(var i=0;i<lines.length;i++){
+            var line=lines[i].trim();if(!line||/^:::(?:[ \t]*(?:center|right|small|row|cards|split))?[ \t]*$/.test(line)||/^(`{3,}|~{3,})/.test(line)||/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/.test(line))continue;
+            line=line.replace(/^(?:>\s*)+/,'').replace(/^#{1,6}(?:\s+|$)/,'').replace(/^(?:[-+*]|\d+[.)])\s+(?:\[[ xX✓✔☑]\]\s*)?/,'').replace(/\s*\{(?:icon:[a-z-]+|audio|card|file|width=[^}]+)\}/gi,'');
+            var box=document.createElement('div');box.innerHTML=inlineMd(esc(line),true);
+            Array.prototype.forEach.call(box.querySelectorAll('img'),function(image){image.replaceWith(document.createTextNode(image.getAttribute('alt')||''));});
+            title=box.textContent.replace(/[\u200b\u00a0]/g,' ').replace(/\s+/g,' ').trim();if(title)break;
+        }
+        var next=title?title.slice(0,120):'Note';if(document.title!==next)document.title=next;
+    }
+
     function loadSettings() {
+        var iconChoice='default';try{iconChoice=localStorage.getItem('memos_favicon')||'default';}catch(_){}applyFavicon(iconChoice);
         var k = localStorage.getItem('memos_key');
         $('apiKey').value = k || DEFAULT_KEY;
         // 身份：链接参数 > 本地设置 > 内置默认（?n=/ ?u= 只在本次打开生效）
@@ -2384,13 +2415,13 @@
             '· 历史条数、目录展开状态\n' +
             '· 纸张宽度、侧栏宽度\n' +
             '· 自动保存、保存延迟\n' +
-            '· 记录访问开关\n\n' +
+            '· 记录访问开关和浏览器图标\n\n' +
             '笔记内容存在服务器上，不受影响。\n' +
             '（若当前链接带 ?n= / ?u=，重置后身份仍由链接决定，属正常。）\n\n确定重置吗？')) return;
         var keys = [
             'memos_key', 'memos_book', 'memos_user', 'memos_autosave', 'memos_delay',
             'memos_history_limit', 'memos_docw', 'memos_sidew', 'memos_logvisit',
-            'memos_toc_mobile', 'memos_toc_desktop', 'memos_toc_width'
+            'memos_toc_mobile', 'memos_toc_desktop', 'memos_toc_width', 'memos_favicon'
         ];
         try {
             for (var j = 0; j < keys.length; j++) localStorage.removeItem(keys[j]);
@@ -3188,6 +3219,7 @@
     /* ================= 编辑器状态 ================= */
 
     function syncEmpty() {
+        updateDocumentTitle();
         var txt = editor.textContent.replace(/\u200b/g, '');
         var hasBlock = editor.querySelector('img,hr,pre,table,ul,ol,blockquote,[data-md-audio]');
         editor.classList.toggle('is-empty', !txt.trim() && !hasBlock);
@@ -3356,6 +3388,7 @@
     }
 
     function scheduleSave(group) {
+        if(rawMode)updateDocumentTitle();
         if (!notebookReady()) return;
         if (group !== 'history') recordEditorHistory(group);
         queueOutlineUpdate();
@@ -6262,6 +6295,9 @@
 
         $('saveBtn').addEventListener('click', function () { doSave(false); });
         $('refreshBtn').addEventListener('click', function () { refresh(false); });
+        document.querySelector('.favicon-options').addEventListener('click',function(event){var button=event.target.closest('[data-favicon]');if(button)chooseFavicon(button.dataset.favicon);});
+        document.querySelector('.favicon-options').addEventListener('keydown',function(event){if(!/^(ArrowLeft|ArrowRight|ArrowUp|ArrowDown|Home|End)$/.test(event.key))return;event.preventDefault();var buttons=Array.prototype.slice.call(this.querySelectorAll('[data-favicon]')),index=buttons.indexOf(event.target);if(index<0)return;index=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(/Left|Up/.test(event.key)?buttons.length-1:1))%buttons.length;chooseFavicon(buttons[index].dataset.favicon);buttons[index].focus();});
+        window.addEventListener('storage',function(event){if(event.key==='memos_favicon'||event.key===null)applyFavicon(event.newValue||'default');});
         $('settingsBtn').addEventListener('click', function () {
             var open = $('settings').classList.toggle('open');
             this.setAttribute('aria-expanded', open ? 'true' : 'false');
