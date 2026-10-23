@@ -52,3 +52,9 @@
 https://mqmux.github.io/
 
 项目通过 GitHub Pages 发布。
+
+## 鲸鱼娘
+
+右下角包含完整 106 个动作的鲸鱼娘。右键或手机长按打开深色菜单，可点播动作、调整大小、隐藏、固定位置，以及生成最多 4 只小鲸鱼。支持拖拽、甩抛、弹弓和宠物碰撞；数量与位置保存在当前浏览器。
+
+模块位于 `pet/`，动画按需加载。移植时复制此目录并引用 `pet/pet.js`。基于 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，小鲸鱼功能参考 [dsh-Jpet-phone](https://github.com/Jcnet-9527/dsh-Jpet-phone)，许可说明见 `pet/LICENSE.*.txt`。
