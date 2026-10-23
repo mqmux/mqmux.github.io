@@ -1038,6 +1038,17 @@
         }
         .side-grip { display: none; }   /* 窄屏是浮层，不给拖宽 */
     }
+
+    /* Explicit enhanced Markdown cards share one layout in all reading/editing views. */
+    :is(.editor,.sheet-body) [data-md-layout="cards"] > ul[data-card-list]{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px;list-style:none;padding:0;margin:12px 0}
+    :is(.editor,.sheet-body) ul[data-card-list]>li{display:flex;min-width:0;margin:0;padding:0;list-style:none}
+    :is(.editor,.sheet-body) a[data-md-card]{position:relative;display:flex;align-items:center;flex:1;min-width:0;min-height:64px;padding:14px 32px 14px 52px;border:1px solid #2d4654;border-radius:9px;background:#0e1c25;color:#dcebf2;text-decoration:none;line-height:1.6;font-size:14px;transition:background .15s,border-color .15s}
+    :is(.editor,.sheet-body) a[data-md-card]:hover{background:#152a36;border-color:#4b7f97}
+    :is(.editor,.sheet-body) a[data-md-card]::before{content:attr(data-card-glyph);position:absolute;left:13px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:27px;height:29px;font-size:18px;border-radius:7px;color:var(--card-icon-color,#91b7ff);background:#7aa5d018}
+    :is(.editor,.sheet-body) a[data-md-card]::after{content:"↗";position:absolute;right:13px;top:50%;transform:translateY(-50%);color:#799aab;font-size:13px}
+    #linkIconWrap label{display:block;margin-bottom:6px}#linkIconWrap select{width:100%;color-scheme:dark}
+    @media(max-width:640px){:is(.editor,.sheet-body) [data-md-layout="cards"] > ul[data-card-list]{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}:is(.editor,.sheet-body) a[data-md-card]{min-height:64px;padding-left:43px;padding-right:23px;font-size:12px}:is(.editor,.sheet-body) a[data-md-card]::before{left:9px;width:25px}:is(.editor,.sheet-body) a[data-md-card]::after{right:8px}}
+
 </style>
 </head>
 <body>
@@ -1144,6 +1155,7 @@
             <button data-cmd="table" title="插入 3 列表格">表格</button>
             <button data-cmd="hr" title="分隔线">—</button>
             <span class="sep"></span>
+            <button data-cmd="card" title="插入链接卡片">卡片</button>
             <button data-cmd="layout-center" aria-pressed="false" title="整段居中；再次点击取消">居中</button>
             <button data-cmd="layout-right" aria-pressed="false" title="整段靠右；再次点击取消">靠右</button>
             <button data-cmd="layout-row" aria-pressed="false" title="两段文字左右同行；Tab 切换左右，Ctrl+Enter 退出">左右同行</button>
@@ -1202,7 +1214,8 @@
     <form class="link-form" id="linkForm">
         <h2 id="linkDialogTitle">插入链接</h2>
         <label for="linkKind">显示方式</label>
-        <select id="linkKind"><option value="link">普通链接</option><option value="audio">音乐播放器</option></select>
+        <select id="linkKind"><option value="link">普通链接</option><option value="card">链接卡片</option><option value="audio">音乐播放器</option></select>
+        <div id="linkIconWrap" hidden><label for="linkIcon">卡片图标</label><select id="linkIcon"><option value="">自动识别</option><option value="home">主页</option><option value="table">多维表</option><option value="sheet">电子表格</option><option value="document">文档</option><option value="file">文件</option><option value="folder">文件夹</option><option value="mail">邮件</option><option value="cart">购物</option><option value="warning">警示</option><option value="star">收藏</option><option value="calendar">日历</option><option value="image">图片</option><option value="music">音乐</option><option value="upload">上传</option><option value="download">下载</option><option value="settings">设置</option><option value="people">成员</option><option value="check">完成</option><option value="chart">数据</option><option value="truck">物流</option><option value="receipt">票据</option><option value="globe">网页</option><option value="code">代码</option><option value="link">链接</option></select></div>
         <label for="linkText">名称</label>
         <input id="linkText" type="text" autocomplete="off" placeholder="链接名称">
         <label for="linkUrl">地址</label>
@@ -1573,14 +1586,14 @@
                /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line) || !!codeFenceStart(line) || !!mdLayoutStart(line) || !!parseAudioLine(line);
     }
 
-    // 增强 Markdown 只接受这四种布局，原文与历史记录仍保存为可阅读的纯文本。
+    // 增强 Markdown 只接受这些显式布局，原文与历史记录仍保存为可阅读的纯文本。
     function mdLayoutType(value) {
         value = String(value || '');
-        return /^(center|right|small|row)$/.test(value) ? value : '';
+        return /^(center|right|small|row|cards)$/.test(value) ? value : '';
     }
 
     function mdLayoutStart(line) {
-        var match = String(line).match(/^[ \t]*:::[ \t]*(center|right|small|row)[ \t]*$/);
+        var match = String(line).match(/^[ \t]*:::[ \t]*(center|right|small|row|cards)[ \t]*$/);
         return match ? match[1] : '';
     }
 
@@ -1791,6 +1804,34 @@
         return true;
     }
 
+    var noteCardIcons={home:['⌂','#91b7ff'],table:['▦','#aaa2ff'],sheet:['▤','#74c8ad'],document:['▧','#9bb9ff'],file:['◧','#aab4c5'],folder:['▰','#e0b86d'],mail:['✉','#83c4ff'],cart:['🛒','#ffad82'],warning:['⚠','#f0bd71'],star:['★','#f2cc69'],calendar:['▦','#85b8ff'],image:['▧','#ce9bff'],music:['♫','#e5a4d7'],upload:['↑','#80cbb8'],download:['↓','#80cbb8'],settings:['⚙','#aab4c5'],people:['♧','#8ec7bb'],check:['✓','#80cbb8'],chart:['▥','#91b7ff'],truck:['➜','#edb274'],receipt:['▤','#7fc5ab'],globe:['◎','#88bded'],code:['‹›','#c1a2ff'],link:['↗','#91b7ff']};
+    function decorateNoteCard(anchor, icon) {
+        var custom=Object.prototype.hasOwnProperty.call(noteCardIcons,icon||'');
+        if(!custom){var href=anchor.getAttribute('href')||'';icon=/\/base\//.test(href)?'table':/\/sheets\//.test(href)?'sheet':'link';}
+        anchor.setAttribute('data-md-card','1');anchor.setAttribute('data-card-icon',icon);anchor.setAttribute('data-card-glyph',noteCardIcons[icon][0]);
+        if(custom)anchor.setAttribute('data-card-custom','1');else anchor.removeAttribute('data-card-custom');
+        anchor.style.setProperty('--card-icon-color',noteCardIcons[icon][1]);
+    }
+    function renderNoteCards(html){
+        var box=document.createElement('div');box.innerHTML=html;
+        Array.prototype.forEach.call(box.querySelectorAll(':scope > ul'),function(list){
+            Array.prototype.forEach.call(list.children,function(item){
+                var anchor=item.firstElementChild;if(!anchor||anchor.tagName!=='A'||item.children.length!==1)return;
+                var suffix=item.textContent.slice(anchor.textContent.length),match=suffix.match(/^\s*\{icon:([a-z-]+)\}\s*$/i);
+                if(suffix.trim()&&!match)return;if(match&&!Object.prototype.hasOwnProperty.call(noteCardIcons,match[1]))return;
+                while(anchor.nextSibling)anchor.nextSibling.remove();decorateNoteCard(anchor,match?match[1]:'');
+            });
+            if(list.children.length&&Array.prototype.every.call(list.children,function(item){return !!item.querySelector(':scope > a[data-md-card]');}))list.setAttribute('data-card-list','1');
+        });return box.innerHTML;
+    }
+    function noteCardMarkdown(title,url,icon){return ':::cards\n- ['+escapeMdLinkLabel(title)+']('+escapeMdLinkUrl(url)+')'+(Object.prototype.hasOwnProperty.call(noteCardIcons,icon||'')?' {icon:'+icon+'}':'')+'\n:::';}
+    function syncCardDialog(){ $('linkIconWrap').hidden=$('linkKind').value!=='card'; }
+    function openCardDialog(anchor){
+        openLinkDialog(null);if(!linkDialogContext)return;linkDialogContext.card=anchor;var range=document.createRange();range.selectNodeContents(anchor);linkDialogContext.range=range;
+        $('linkKind').value='card';$('linkKind').disabled=true;$('linkText').value=anchor.textContent;$('linkUrl').value=anchor.getAttribute('href');$('linkIcon').value=anchor.hasAttribute('data-card-custom')?anchor.getAttribute('data-card-icon'):'';
+        $('linkDialogTitle').textContent='修改链接卡片';$('linkSubmit').textContent='保存';syncCardDialog();
+    }
+
     function md2html(md, allowAudio, depth) {
         depth = depth || 0;
         if (depth > 48) return '<p>' + esc(String(md == null ? '' : md)).replace(/\r\n?|\n/g, '<br>') + '</p>';
@@ -1848,6 +1889,7 @@
                     }
                 } else {
                     var layoutBody = md2html(lines.slice(i + 1, layoutBounds.end).join('\n'), allowAudio, depth + 1);
+                    if (layout === 'cards') layoutBody = renderNoteCards(layoutBody);
                     html.push('<div data-md-layout="' + layout + '">' + (layoutBody || '<p><br></p>') + '</div>');
                 }
                 i = layoutBounds.end;
@@ -2047,7 +2089,7 @@
         if (strike) inner = '~~' + inner + '~~';
         if (underline) inner = '++' + inner + '++';
         if (strike || underline) return inner;
-        if (tag === 'a') return '[' + inner.replace(/\n/g, '<br>') + '](' + escapeMdLinkUrl(node.getAttribute('href') || '') + ')';
+        if (tag === 'a') return '[' + inner.replace(/\n/g, '<br>') + '](' + escapeMdLinkUrl(node.getAttribute('href') || '') + ')' + (node.hasAttribute('data-card-custom') && noteCardIcons[node.getAttribute('data-card-icon')] ? ' {icon:' + node.getAttribute('data-card-icon') + '}' : '');
         return inner;
     }
 
@@ -3979,6 +4021,7 @@
         $('linkUrl').value = block ? block.getAttribute('data-audio-src') : '';
         $('linkDialogTitle').textContent = block ? '修改音乐' : '插入链接';
         $('linkSubmit').textContent = block ? '保存' : '插入';
+        $('linkIcon').value='';syncCardDialog();
         $('linkError').hidden = true;
         $('linkDialog').hidden = false;
         $('linkUrl').focus();
@@ -4061,15 +4104,15 @@
         if (!context || isReadOnly() || context.revision !== editorLoadRevision || context.modeRevision !== editorModeRevision) {
             fail('正文或编辑模式已变化，请关闭后重新插入'); return;
         }
-        var audio = $('linkKind').value === 'audio';
+        var audio = $('linkKind').value === 'audio', card = $('linkKind').value === 'card', icon=$('linkIcon').value;
         var title = $('linkText').value.replace(/[\r\n]+/g, ' ').trim() || (audio ? '音乐' : '链接文字');
         var url = audio ? audioUrl($('linkUrl').value) : safeHref($('linkUrl').value);
         if (!url) { fail(audio ? '请输入 http 或 https 音频直链' : '请输入有效的链接地址'); return; }
         try {
             if (context.source) {
-                var md = audio ? audioMarkdown(title, url) : '[' + escapeMdLinkLabel(title) + '](' + escapeMdLinkUrl(url) + ')';
+                var md = card ? noteCardMarkdown(title,url,icon) : audio ? audioMarkdown(title, url) : '[' + escapeMdLinkLabel(title) + '](' + escapeMdLinkUrl(url) + ')';
                 var start = context.start, end = context.end;
-                if (audio) {
+                if (audio || card) {
                     if (start > 0 && rawBox.value.charAt(start - 1) !== '\n') md = '\n' + md;
                     if (end < rawBox.value.length && rawBox.value.charAt(end) !== '\n') md += '\n';
                 }
@@ -4078,6 +4121,14 @@
                 closeLinkDialog(false); rawBox.focus({ preventScroll: true });
             } else if (audio) {
                 placeAudioBlock(title, url, context); closeLinkDialog(false);
+            } else if (card) {
+                editor.focus({preventScroll:true});var selection=window.getSelection();
+                if(context.range&&editor.contains(context.range.startContainer)&&editor.contains(context.range.endContainer)){selection.removeAllRanges();selection.addRange(context.range);}
+                if(editorSelectionContainsAudio())throw new Error('请在文字位置插入卡片，音乐块将保留');
+                rememberEditorHistoryBoundary();
+                if(context.card){if(!editor.contains(context.card))throw new Error('卡片已被移除，请重新选择');context.card.textContent=title;context.card.setAttribute('href',url);decorateNoteCard(context.card,icon);}
+                else if(!preserveMusicOnEdit(function(){document.execCommand('insertHTML',false,md2html(noteCardMarkdown(title,url,icon)));})){fail('未能插入卡片，请重新选择位置');return;}
+                ensureTail();syncEmpty();rememberEditorSelection();scheduleSave();closeLinkDialog(false);
             } else {
                 editor.focus({ preventScroll: true });
                 if (context.range && editor.contains(context.range.startContainer) && editor.contains(context.range.endContainer)) {
@@ -4136,7 +4187,9 @@
         });
         $('linkForm').addEventListener('submit', submitLinkDialog);
         $('linkCancel').addEventListener('click', function () { closeLinkDialog(true); });
+        editor.addEventListener('click',function(e){var anchor=e.target.closest&&e.target.closest('a[data-md-card]');if(anchor&&!isReadOnly()){e.preventDefault();openCardDialog(anchor);}});
         $('linkKind').addEventListener('change', function () {
+            syncCardDialog();
             $('linkText').placeholder = this.value === 'audio' ? '歌曲名称' : '链接名称';
             $('linkUrl').placeholder = this.value === 'audio' ? 'https://example.com/music.mp3' : 'https://';
             $('linkError').hidden = true;
@@ -5615,6 +5668,7 @@
 
     function cmdOf(cmd, btn) {
         if (isReadOnly()) return;
+        if(cmd==='card'){if(!rawMode&&editorSelectionContainsAudio()){toast('请在文字位置插入卡片，音乐块将保留');return;}openLinkDialog(null);if(linkDialogContext){$('linkKind').value='card';syncCardDialog();}return;}
         if (/^(h[1-6]|ul|ol|task|quote|pre|hr|table|code)$/.test(cmd) && editorSelectionContainsAudio()) {
             toast('请在文字段落设置此格式，音乐块可使用居中、靠右或左右同行');
             return;
