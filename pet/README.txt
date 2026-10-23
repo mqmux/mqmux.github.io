@@ -19,6 +19,8 @@ DSH 专用余额、AI 对话及桌面窗口入口未接入本网站，事件动�
 完整性审计：verification/pet-build/asset-audit.cjs
 
 2026-10-23：参考 Jcnet-9527/dsh-Jpet-phone 的 CompanionModule / CompanionCodec
-（5dca11bec783cc482812134f80bb59b71ed48c34）加入最多四只小鲸鱼，大小为主宠的 75%。
+（5dca11bec783cc482812134f80bb59b71ed48c34）加入小鲸鱼（现已取消数量上限），大小为主宠的 75%。
 网页复用现有 PetMulti 与原版 petCollision 物理：甩抛撞击后按动量弹开。
 新增、移除、位置与数量保存于当前浏览器；菜单统一深色。
+
+主宠菜单可移除所有小鲸鱼；达到 8 只时仅提示资源占用，不限制生成。
