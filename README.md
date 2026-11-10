@@ -53,10 +53,12 @@ https://mqmux.github.io/
 
 项目通过 GitHub Pages 发布。
 
-## 鲸鱼娘
+## 桌宠
 
-右下角包含完整 106 个动作的鲸鱼娘。右键或手机长按打开深色菜单，可点播动作、调整大小、隐藏、固定位置，以及生成小鲸鱼（不设数量上限，主宠菜单可一键移除全部）。支持拖拽、甩抛、弹弓和宠物碰撞；数量与位置保存在当前浏览器。
+页面包含 DeepSeek 鲸鱼娘、GPT 白龙娘、Claude 橙书娘、Gemini 星猫娘，分别提供 106、193、166、100 段完整连续动画。每只都有独立脚本，可单独引用或同时使用；共用原版动作播放器和物理，支持拖拽、甩抛、弹弓、相互碰撞，以及生成和移除小宠物。
 
-模块位于 `pet/`，动画按需加载。移植时复制此目录并引用 `pet/pet.js`。基于 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，小鲸鱼功能参考 [dsh-Jpet-phone](https://github.com/Jcnet-9527/dsh-Jpet-phone)，许可说明见 `pet/LICENSE.*.txt`。
+右键或手机长按打开深色动作菜单，可调整名称、大小、隐藏、固定和点击音效。四只共用原鲸鱼的按下/松开音效，提前加载并解码到内存；各自可静音。设置按来源、页面路径、角色分别保存，动画按需下载。
+
+引用方式见 [pet/pets/README.md](pet/pets/README.md)，素材来源见 [NOTICE.md](pet/pets/NOTICE.md)。原独立鲸鱼 `pet/pet.js` 保留。基于 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，小宠物功能参考 [dsh-Jpet-phone](https://github.com/Jcnet-9527/dsh-Jpet-phone)，代码许可见 `pet/LICENSE.*.txt`。
 
 图标和宠物脚本使用 `https://mqmux.github.io/` 完整 URL；宠物素材按脚本所在地址加载，复制 HTML 到其他位置仍使用 GitHub 上的素材。
