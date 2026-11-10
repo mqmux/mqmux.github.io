@@ -61,4 +61,4 @@ https://mqmux.github.io/
 
 引用方式见 [pet/pets/README.md](pet/pets/README.md)，素材来源见 [NOTICE.md](pet/pets/NOTICE.md)。原独立鲸鱼 `pet/pet.js` 保留。基于 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，小宠物功能参考 [dsh-Jpet-phone](https://github.com/Jcnet-9527/dsh-Jpet-phone)，代码许可见 `pet/LICENSE.*.txt`。
 
-图标和宠物脚本使用 `https://mqmux.github.io/` 完整 URL；宠物素材按脚本所在地址加载，复制 HTML 到其他位置仍使用 GitHub 上的素材。
+图标和宠物脚本使用 `https://mqmux.github.io/` 完整 URL；DeepSeek 和共享音效从本站加载，其他三套动画通过固定版本的 GitHub 原始资源 URL 按需加载；完整资源保存在本仓库，复制 HTML 到其他位置仍使用 GitHub 上的素材。

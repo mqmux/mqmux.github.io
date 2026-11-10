@@ -1,7 +1,7 @@
 (function(){
   "use strict";
   const script=document.currentScript;
-  const input={id:"gemini",name:"Gemini 星猫娘",slot:3,size:400,assets:new URL("native/gemini/webm/",script.src).href,source:"https://github.com/hunmer/aboutme-pets",manifest:new URL("native/gemini/manifest.json",script.src).href};
+  const input={id:"gemini",name:"Gemini 星猫娘",slot:3,size:400,assets:"https://raw.githubusercontent.com/mqmux/mqmux.github.io/f949b0d87750111d57e6ab86b684daafd377499d/pet/pets/native/gemini/webm/",source:"https://github.com/hunmer/aboutme-pets",manifest:"https://raw.githubusercontent.com/mqmux/mqmux.github.io/f949b0d87750111d57e6ab86b684daafd377499d/pet/pets/native/gemini/manifest.json"};
   const globalName="__muqiuNativePetWorldV2",promiseName="__muqiuNativePetWorldLoadV2";
   if(window[globalName]){window[globalName].register(input).catch(console.error);return;}
   if(!window[promiseName])window[promiseName]=new Promise((resolve,reject)=>{
