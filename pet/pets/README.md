@@ -3,10 +3,10 @@
 四个入口共用由现有鲸鱼娘代码复制、适配的原生运行时 `native-world.js`。播放器、随机动作链、Q 弹、弹簧拖动、甩抛、弹弓、碰撞与完整动作菜单沿用 dsh-pet 0.3.8 及本站已有补丁。
 
 ```html
-<script defer src="https://mqmux.github.io/pet/pets/deepseek.js?v=20261110-native4-raw1"></script>
-<script defer src="https://mqmux.github.io/pet/pets/gpt.js?v=20261110-native4-raw1"></script>
-<script defer src="https://mqmux.github.io/pet/pets/claude.js?v=20261110-native4-raw1"></script>
-<script defer src="https://mqmux.github.io/pet/pets/gemini.js?v=20261110-native4-raw1"></script>
+<script defer src="https://mqmux.github.io/pet/pets/deepseek.js?v=20261110-native4-raw2"></script>
+<script defer src="https://mqmux.github.io/pet/pets/gpt.js?v=20261110-native4-raw2"></script>
+<script defer src="https://mqmux.github.io/pet/pets/claude.js?v=20261110-native4-raw2"></script>
+<script defer src="https://mqmux.github.io/pet/pets/gemini.js?v=20261110-native4-raw2"></script>
 ```
 
 每只宠物一行，引用任意子集即可；运行时只加载一次。同页的新宠物及其小宠物共用原生碰撞站场，行走、拖拽、甩抛均可碰撞。资源相对于入口脚本定位，可跨网页使用。
