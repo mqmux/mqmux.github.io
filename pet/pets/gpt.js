@@ -6,7 +6,7 @@
   if(window[globalName]){window[globalName].register(input).catch(console.error);return;}
   if(!window[promiseName])window[promiseName]=new Promise((resolve,reject)=>{
     const core=document.createElement("script");
-    core.src=new URL("native-world.js?v=20261110-native4-raw2",script.src).href;
+    core.src=new URL("native-world.js?v=20261110-launcher1",script.src).href;
     core.async=true;core.onload=()=>resolve(window[globalName]);core.onerror=reject;document.head.appendChild(core);
   });
   window[promiseName].then(world=>world.register(input)).catch(error=>console.warn("宠物加载失败",error));
